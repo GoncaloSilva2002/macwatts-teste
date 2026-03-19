@@ -306,6 +306,13 @@
     sessionStorage.setItem(key, raw);
     localStorage.setItem(key, raw);
   }
+
+  const API_BASE = (() => {
+    if (/github\\.io$/i.test(window.location.hostname)) {
+      return "https://YOUR-RENDER-URL";
+    }
+    return "";
+  })();
   const backBtn = document.getElementById("backBtn");
   const form = document.getElementById("contactForm");
   const statusEl = document.getElementById("status");
@@ -512,7 +519,7 @@
     statusEl.textContent = "A enviar PDF por email...";
 
     try {
-    const response = await fetch("/api/quote/email", {
+    const response = await fetch(`${API_BASE}/api/quote/email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
