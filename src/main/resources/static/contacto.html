@@ -309,10 +309,30 @@
 
   const API_BASE = (() => {
     if (/github\\.io$/i.test(window.location.hostname)) {
-      return "https://YOUR-RENDER-URL";
+      return "https://macwatts-teste.onrender.com";
     }
     return "";
   })();
+
+  const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
+  const WEB3FORMS_ACCESS_KEY = "a36654cf-fe25-40ad-ad79-97312505b867";
+
+  function dataUrlToBlob(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return null;
+    const parts = dataUrl.split(",");
+    if (parts.length < 2) return null;
+    const meta = parts[0];
+    const base64 = parts[1];
+    const match = /data:([^;]+);base64/i.exec(meta);
+    const mime = match ? match[1] : "application/octet-stream";
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  }
   const backBtn = document.getElementById("backBtn");
   const form = document.getElementById("contactForm");
   const statusEl = document.getElementById("status");
@@ -519,27 +539,46 @@
     statusEl.textContent = "A enviar PDF por email...";
 
     try {
-    const response = await fetch(`${API_BASE}/api/quote/email`, {
+      const formDataPayload = new FormData();
+      formDataPayload.append("access_key", WEB3FORMS_ACCESS_KEY);
+      formDataPayload.append("subject", "Novo pedido de orçamento");
+      formDataPayload.append("from_name", "MacWatts - Pedido de Orçamento");
+      formDataPayload.append("replyto", clientData.clientEmail);
+      formDataPayload.append("email", clientData.clientEmail);
+      formDataPayload.append("name", clientData.clientName);
+      formDataPayload.append("phone", clientData.clientPhone);
+      formDataPayload.append("nif", clientData.clientNif);
+
+      const summaryLines = [
+        `Nome: ${clientData.clientName}`,
+        `Email: ${clientData.clientEmail}`,
+        `Telemóvel: ${clientData.clientPhone}`,
+        `NIF: ${clientData.clientNif}`,
+        `Morada: ${formatAddressShort(roofData && roofData.address ? roofData.address : "")}`,
+        `Coordenadas: ${(roofData && roofData.center && roofData.center.lat !== undefined) ? roofData.center.lat : "n/a"}, ${(roofData && roofData.center && roofData.center.lng !== undefined) ? roofData.center.lng : "n/a"}`,
+        "",
+        "Resumo:",
+        buildQuestionnaireSummary(questionnaireData, roofData)
+      ];
+      formDataPayload.append("message", summaryLines.join("\n"));
+
+      const primaryAttachment = (invoicePdf && invoicePdf.dataUrl) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.dataUrl : (invoiceFile ? invoiceFile.dataUrl : null));
+      const primaryAttachmentName = (invoicePdf && invoicePdf.name) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.name : (invoiceFile ? invoiceFile.name : null)) || "fatura.pdf";
+      const primaryBlob = dataUrlToBlob(primaryAttachment);
+      if (primaryBlob && primaryBlob.size <= 1024 * 1024) {
+        formDataPayload.append("attachment", primaryBlob, primaryAttachmentName);
+      }
+
+      const altAttachment = (invoicePhoto && invoicePhoto.dataUrl) || null;
+      const altAttachmentName = (invoicePhoto && invoicePhoto.name) || "fatura-foto.jpg";
+      const altBlob = dataUrlToBlob(altAttachment);
+      if (altBlob && altBlob.size <= 1024 * 1024) {
+        formDataPayload.append("attachment", altBlob, altAttachmentName);
+      }
+
+      const response = await fetch(WEB3FORMS_ENDPOINT, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          clientName: clientData.clientName,
-          clientEmail: clientData.clientEmail,
-          clientPhone: clientData.clientPhone,
-          clientNif: clientData.clientNif,
-          latitude: (roofData && roofData.center && roofData.center.lat !== undefined) ? roofData.center.lat : null,
-          longitude: (roofData && roofData.center && roofData.center.lng !== undefined) ? roofData.center.lng : null,
-          addressSummary: formatAddressShort(roofData && roofData.address ? roofData.address : ""),
-          questionnaireSummary: buildQuestionnaireSummary(questionnaireData, roofData),
-          invoiceAttachmentBase64: (invoicePdf && invoicePdf.dataUrl) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.dataUrl : (invoiceFile ? invoiceFile.dataUrl : null)),
-          invoiceAttachmentName: (invoicePdf && invoicePdf.name) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.name : (invoiceFile ? invoiceFile.name : null)),
-          invoiceAttachmentMime: (invoicePdf && invoicePdf.type) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.type : (invoiceFile ? invoiceFile.type : null)),
-          invoiceAttachmentBase64Alt: (invoicePhoto && invoicePhoto.dataUrl) || null,
-          invoiceAttachmentNameAlt: (invoicePhoto && invoicePhoto.name) || null,
-          invoiceAttachmentMimeAlt: (invoicePhoto && invoicePhoto.type) || null
-        })
+        body: formDataPayload
       });
 
       if (!response.ok) {
