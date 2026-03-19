@@ -307,24 +307,7 @@
     localStorage.setItem(key, raw);
   }
 
-  const FORMSPREE_ENDPOINT = "https://formspree.io/f/mlgpzjqq";
-
-  function dataUrlToBlob(dataUrl) {
-    if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return null;
-    const parts = dataUrl.split(",");
-    if (parts.length < 2) return null;
-    const meta = parts[0];
-    const base64 = parts[1];
-    const match = /data:([^;]+);base64/i.exec(meta);
-    const mime = match ? match[1] : "application/octet-stream";
-    const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return new Blob([bytes], { type: mime });
-  }
+  const TALLY_FORM_URL = "https://tally.so/r/J90YK4";
   const backBtn = document.getElementById("backBtn");
   const form = document.getElementById("contactForm");
   const statusEl = document.getElementById("status");
@@ -528,7 +511,7 @@
 
     persistJson("quoteRequest", finalData);
 
-    statusEl.textContent = "A enviar PDF por email...";
+    statusEl.textContent = "A abrir formulário...";
 
     try {
       const summaryLines = [
@@ -543,38 +526,15 @@
         buildQuestionnaireSummary(questionnaireData, roofData)
       ];
 
-      const formDataPayload = new FormData();
-      formDataPayload.append("name", clientData.clientName);
-      formDataPayload.append("email", clientData.clientEmail);
-      formDataPayload.append("phone", clientData.clientPhone);
-      formDataPayload.append("nif", clientData.clientNif);
-      formDataPayload.append("message", summaryLines.join("\n"));
-      formDataPayload.append("_subject", "Novo pedido de orçamento");
-
-      const primaryAttachment = (invoicePdf && invoicePdf.dataUrl) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.dataUrl : (invoiceFile ? invoiceFile.dataUrl : null));
-      const primaryAttachmentName = (invoicePdf && invoicePdf.name) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.name : (invoiceFile ? invoiceFile.name : null)) || "fatura.pdf";
-      const primaryBlob = dataUrlToBlob(primaryAttachment);
-      if (primaryBlob) {
-        formDataPayload.append("attachment", primaryBlob, primaryAttachmentName);
-      }
-
-      const altAttachment = (invoicePhoto && invoicePhoto.dataUrl) || null;
-      const altAttachmentName = (invoicePhoto && invoicePhoto.name) || "fatura-foto.jpg";
-      const altBlob = dataUrlToBlob(altAttachment);
-      if (altBlob) {
-        formDataPayload.append("attachment", altBlob, altAttachmentName);
-      }
-
-      const response = await fetch(FORMSPREE_ENDPOINT, {
-        method: "POST",
-        body: formDataPayload,
-        headers: { "Accept": "application/json" }
+      const params = new URLSearchParams({
+        clientName: clientData.clientName,
+        clientEmail: clientData.clientEmail,
+        clientPhone: clientData.clientPhone,
+        clientNif: clientData.clientNif,
+        addressSummary: formatAddressShort(roofData && roofData.address ? roofData.address : ""),
+        questionnaireSummary: buildQuestionnaireSummary(questionnaireData, roofData)
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Erro no envio do email.");
-      }
+      window.location.href = `${TALLY_FORM_URL}?${params.toString()}`;
 
       const keysToClear = [
         "roofSelection",
