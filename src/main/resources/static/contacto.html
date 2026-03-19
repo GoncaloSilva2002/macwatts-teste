@@ -307,31 +307,22 @@
     localStorage.setItem(key, raw);
   }
 
-  const API_BASE = (() => {
-    if (/github\\.io$/i.test(window.location.hostname)) {
-      return "https://macwatts-teste.onrender.com";
-    }
-    return "";
-  })();
+  const MAILERSEND_API_TOKEN = "mlsn.64b8291e8e6af574c164bc0088024e98c7ca172b2d21c55d241423d602183247";
+  const MAILERSEND_FROM_EMAIL = "no-reply@YOUR-VERIFIED-DOMAIN";
+  const MAILERSEND_FROM_NAME = "MacWatts - Pedido de Orçamento";
+  const MAILERSEND_TO_EMAIL = "macwattstestes@gmail.com";
 
-  const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
-  const WEB3FORMS_ACCESS_KEY = "a36654cf-fe25-40ad-ad79-97312505b867";
-
-  function dataUrlToBlob(dataUrl) {
+  function dataUrlToBase64(dataUrl) {
     if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return null;
     const parts = dataUrl.split(",");
     if (parts.length < 2) return null;
-    const meta = parts[0];
-    const base64 = parts[1];
-    const match = /data:([^;]+);base64/i.exec(meta);
-    const mime = match ? match[1] : "application/octet-stream";
-    const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return new Blob([bytes], { type: mime });
+    return parts[1];
+  }
+
+  function base64SizeBytes(base64) {
+    if (!base64) return 0;
+    const padding = (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
+    return Math.ceil((base64.length * 3) / 4) - padding;
   }
   const backBtn = document.getElementById("backBtn");
   const form = document.getElementById("contactForm");
@@ -539,16 +530,6 @@
     statusEl.textContent = "A enviar PDF por email...";
 
     try {
-      const formDataPayload = new FormData();
-      formDataPayload.append("access_key", WEB3FORMS_ACCESS_KEY);
-      formDataPayload.append("subject", "Novo pedido de orçamento");
-      formDataPayload.append("from_name", "MacWatts - Pedido de Orçamento");
-      formDataPayload.append("replyto", clientData.clientEmail);
-      formDataPayload.append("email", clientData.clientEmail);
-      formDataPayload.append("name", clientData.clientName);
-      formDataPayload.append("phone", clientData.clientPhone);
-      formDataPayload.append("nif", clientData.clientNif);
-
       const summaryLines = [
         `Nome: ${clientData.clientName}`,
         `Email: ${clientData.clientEmail}`,
@@ -560,25 +541,60 @@
         "Resumo:",
         buildQuestionnaireSummary(questionnaireData, roofData)
       ];
-      formDataPayload.append("message", summaryLines.join("\n"));
 
+      const attachments = [];
       const primaryAttachment = (invoicePdf && invoicePdf.dataUrl) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.dataUrl : (invoiceFile ? invoiceFile.dataUrl : null));
       const primaryAttachmentName = (invoicePdf && invoicePdf.name) || (questionnaireData && questionnaireData.invoiceFile ? questionnaireData.invoiceFile.name : (invoiceFile ? invoiceFile.name : null)) || "fatura.pdf";
-      const primaryBlob = dataUrlToBlob(primaryAttachment);
-      if (primaryBlob && primaryBlob.size <= 1024 * 1024) {
-        formDataPayload.append("attachment", primaryBlob, primaryAttachmentName);
+      const primaryBase64 = dataUrlToBase64(primaryAttachment);
+      if (primaryBase64 && base64SizeBytes(primaryBase64) <= 25 * 1024 * 1024) {
+        attachments.push({
+          content: primaryBase64,
+          filename: primaryAttachmentName,
+          disposition: "attachment"
+        });
       }
 
       const altAttachment = (invoicePhoto && invoicePhoto.dataUrl) || null;
       const altAttachmentName = (invoicePhoto && invoicePhoto.name) || "fatura-foto.jpg";
-      const altBlob = dataUrlToBlob(altAttachment);
-      if (altBlob && altBlob.size <= 1024 * 1024) {
-        formDataPayload.append("attachment", altBlob, altAttachmentName);
+      const altBase64 = dataUrlToBase64(altAttachment);
+      if (altBase64 && base64SizeBytes(altBase64) <= 25 * 1024 * 1024) {
+        attachments.push({
+          content: altBase64,
+          filename: altAttachmentName,
+          disposition: "attachment"
+        });
       }
 
-      const response = await fetch(WEB3FORMS_ENDPOINT, {
+      const payload = {
+        from: {
+          email: MAILERSEND_FROM_EMAIL,
+          name: MAILERSEND_FROM_NAME
+        },
+        to: [
+          {
+            email: MAILERSEND_TO_EMAIL,
+            name: "MacWatts"
+          }
+        ],
+        reply_to: {
+          email: clientData.clientEmail,
+          name: clientData.clientName
+        },
+        subject: "Novo pedido de orçamento",
+        text: summaryLines.join("\n")
+      };
+
+      if (attachments.length) {
+        payload.attachments = attachments;
+      }
+
+      const response = await fetch("https://api.mailersend.com/v1/email", {
         method: "POST",
-        body: formDataPayload
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${MAILERSEND_API_TOKEN}`
+        },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
