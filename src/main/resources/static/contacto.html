@@ -307,7 +307,6 @@
     localStorage.setItem(key, raw);
   }
 
-  const TALLY_FORM_URL = "https://tally.so/r/J90YK4";
   const backBtn = document.getElementById("backBtn");
   const form = document.getElementById("contactForm");
   const statusEl = document.getElementById("status");
@@ -511,30 +510,46 @@
 
     persistJson("quoteRequest", finalData);
 
-    statusEl.textContent = "A abrir formulário...";
+    statusEl.textContent = "A enviar pedido...";
 
     try {
-      const summaryLines = [
-        `Nome: ${clientData.clientName}`,
-        `Email: ${clientData.clientEmail}`,
-        `Telemóvel: ${clientData.clientPhone}`,
-        `NIF: ${clientData.clientNif}`,
-        `Morada: ${formatAddressShort(roofData && roofData.address ? roofData.address : "")}`,
-        `Coordenadas: ${(roofData && roofData.center && roofData.center.lat !== undefined) ? roofData.center.lat : "n/a"}, ${(roofData && roofData.center && roofData.center.lng !== undefined) ? roofData.center.lng : "n/a"}`,
-        "",
-        "Resumo:",
-        buildQuestionnaireSummary(questionnaireData, roofData)
-      ];
+      const addressSummary = formatAddressShort(roofData && roofData.address ? roofData.address : "");
+      const questionnaireSummary = buildQuestionnaireSummary(questionnaireData, roofData);
+      const primaryInvoice = [invoiceFile, invoicePdf, invoicePhoto].find((item) => item && item.dataUrl);
+      const alternativeInvoice = [invoicePdf, invoicePhoto].find((item) => {
+        return item
+          && item.dataUrl
+          && (!primaryInvoice || item.dataUrl !== primaryInvoice.dataUrl);
+      });
 
-      const params = new URLSearchParams({
+      const payload = {
         clientName: clientData.clientName,
         clientEmail: clientData.clientEmail,
         clientPhone: clientData.clientPhone,
         clientNif: clientData.clientNif,
-        addressSummary: formatAddressShort(roofData && roofData.address ? roofData.address : ""),
-        questionnaireSummary: buildQuestionnaireSummary(questionnaireData, roofData)
+        addressSummary,
+        questionnaireSummary,
+        latitude: (roofData && roofData.center && roofData.center.lat !== undefined) ? roofData.center.lat : null,
+        longitude: (roofData && roofData.center && roofData.center.lng !== undefined) ? roofData.center.lng : null,
+        invoiceAttachmentBase64: primaryInvoice ? primaryInvoice.dataUrl : null,
+        invoiceAttachmentName: primaryInvoice ? primaryInvoice.name : null,
+        invoiceAttachmentMime: primaryInvoice ? primaryInvoice.type : null,
+        invoiceAttachmentBase64Alt: alternativeInvoice ? alternativeInvoice.dataUrl : null,
+        invoiceAttachmentNameAlt: alternativeInvoice ? alternativeInvoice.name : null,
+        invoiceAttachmentMimeAlt: alternativeInvoice ? alternativeInvoice.type : null
+      };
+
+      const response = await fetch("/api/quote/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
       });
-      window.location.href = `${TALLY_FORM_URL}?${params.toString()}`;
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(responseText || `HTTP ${response.status}`);
+      }
 
       const keysToClear = [
         "roofSelection",
@@ -549,13 +564,13 @@
         localStorage.removeItem(key);
       });
 
-      statusEl.textContent = "";
+      statusEl.textContent = "Pedido enviado com sucesso.";
       setTimeout(() => {
         window.location.href = "geocoding.html";
       }, 1200);
     } catch (error) {
-      statusEl.textContent = `Falhou o envio do PDF por email: ${error.message || "erro desconhecido"}`;
-      console.error("Erro ao enviar PDF por email:", error);
+      statusEl.textContent = `Falhou o envio: ${error.message || "erro desconhecido"}`;
+      console.error("Erro ao enviar pedido:", error);
     }
   });
 </script>
