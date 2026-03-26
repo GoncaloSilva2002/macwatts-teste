@@ -536,6 +536,7 @@
           <div class="meta">
             <div id="centerText">Centro: sem dados</div>
             <div id="areaText">Área estimada: sem dados</div>
+            <div id="zoneText">Zona: sem dados</div>
             <div>
               <input id="invoiceCapture" type="file" accept="image/*" capture="environment" style="display:none">
               <input id="invoicePdfUpload" type="file" accept="application/pdf" style="display:none">
@@ -588,6 +589,7 @@
             <div>Consumo estimado por mês: <strong id="monthlyKwhTotalText">0.0 kWh</strong></div>
             <div>Consumo coberto (60%): <strong id="monthlyKwhCoveredText">0.0 kWh</strong></div>
             <div>kWp necessário por mês: <strong id="monthlyKwpText">0.00 kWp</strong></div>
+            <div>Produção média por painel: <strong id="panelProductionText">0 kWh/mês</strong></div>
             <div>Painéis necessários: <strong id="panelsNeededText">0 painéis</strong></div>
           </div>
           <button type="button" class="additional-trigger" id="openAdditionalInfo">Informações adicionais</button>
@@ -672,6 +674,7 @@
   const clientAddressTitle = document.getElementById("clientAddressTitle");
   const centerText = document.getElementById("centerText");
   const areaText = document.getElementById("areaText");
+  const zoneText = document.getElementById("zoneText");
   const form = document.getElementById("questionnaireForm");
   const statusEl = document.getElementById("status");
   const backBtn = document.getElementById("backBtn");
@@ -682,6 +685,7 @@
   const monthlyKwhTotalText = document.getElementById("monthlyKwhTotalText");
   const monthlyKwhCoveredText = document.getElementById("monthlyKwhCoveredText");
   const monthlyKwpText = document.getElementById("monthlyKwpText");
+  const panelProductionText = document.getElementById("panelProductionText");
   const panelsNeededText = document.getElementById("panelsNeededText");
   const openAdditionalInfo = document.getElementById("openAdditionalInfo");
   const additionalInfoText = document.getElementById("additionalInfoText");
@@ -721,6 +725,45 @@
   let invoicePhoto = loadStoredJson("invoicePhoto");
   let invoicePdf = loadStoredJson("invoicePdf");
 
+  // Configuração da região (ajusta estes valores conforme o país/região)
+  const REGION_LAT_MIN = 36.9;
+  const REGION_LAT_MAX = 42.2;
+  const REGION_ZONE_COUNT = 4;
+  const REGION_ZONE_LABELS = ["Sul", "Centro Sul", "Centro", "Norte"];
+
+  // Produção média mensal por painel (0.53 kWp) em kWh, por zona.
+  const ZONE_PANEL_MONTHLY_KWH = {
+    "Norte": 67,
+    "Centro": 66,
+    "Centro Sul": 69,
+    "Sul": 77
+  };
+  const DEFAULT_PANEL_MONTHLY_KWH = 66.25;
+
+  function getLatitudeZone(lat, minLat, maxLat, zoneCount = 3, labels = null) {
+    if (!Number.isFinite(lat) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) {
+      return null;
+    }
+    const interval = maxLat - minLat;
+    if (interval <= 0 || zoneCount <= 0) {
+      return null;
+    }
+    if (lat < minLat || lat > maxLat) {
+      return "Fora da região";
+    }
+
+    const step = interval / zoneCount;
+    const zoneIndex = Math.min(zoneCount - 1, Math.floor((lat - minLat) / step));
+
+    if (Array.isArray(labels) && labels.length === zoneCount) {
+      return labels[zoneIndex] || "Zona";
+    }
+    if (zoneCount === 3) {
+      return ["Sul", "Centro", "Norte"][zoneIndex] || "Zona";
+    }
+    return `Zona ${zoneIndex + 1}`;
+  }
+
   const map = L.map("roofPreview", {
     zoomControl: false,
     attributionControl: false,
@@ -737,6 +780,8 @@
     maxNativeZoom: 19,
     attribution: ""
   }).addTo(map);
+
+  let currentZoneLabel = null;
 
   if (!roofData || !roofData.center || !Array.isArray(roofData.points) || roofData.points.length < 3) {
     statusEl.textContent = "Não encontrámos seleção de telhado. Volta ao passo anterior.";
@@ -756,6 +801,14 @@
     clientAddressTitle.textContent = selectedAddress;
     centerText.textContent = `Centro: lat ${roofData.center.lat.toFixed(6)}, lon ${roofData.center.lng.toFixed(6)}`;
     areaText.textContent = `Área estimada: ${(roofData.areaSqm || 0).toFixed(1)} m²`;
+    currentZoneLabel = getLatitudeZone(
+      roofData.center.lat,
+      REGION_LAT_MIN,
+      REGION_LAT_MAX,
+      REGION_ZONE_COUNT,
+      REGION_ZONE_LABELS
+    );
+    zoneText.textContent = currentZoneLabel ? `Zona: ${currentZoneLabel}` : "Zona: configure latitudes";
   }
 
   backBtn.addEventListener("click", () => {
@@ -844,10 +897,9 @@
 
     const pricePerKwhRaw = Number(pricePerKwhInput.value);
     const pricePerKwh = Number.isFinite(pricePerKwhRaw) && pricePerKwhRaw > 0 ? pricePerKwhRaw : 0.20;
-    const solarCoverage = 0.75;
-    const productionPerKwp = 125;
+    const solarCoverage = 0.60;
     const panelPower = 0.53;
-    const productionPerPanel = panelPower * productionPerKwp;
+    const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
 
     const monthlyKwhTotal = value / pricePerKwh;
     const monthlyKwhCovered = monthlyKwhTotal * solarCoverage;
@@ -860,6 +912,7 @@
     monthlyKwhTotalText.textContent = `${monthlyKwhTotal.toFixed(1)} kWh`;
     monthlyKwhCoveredText.textContent = `${monthlyKwhCovered.toFixed(1)} kWh`;
     monthlyKwpText.textContent = `${(panelsNeeded * panelPower).toFixed(2)} kWp`;
+    panelProductionText.textContent = `${productionPerPanel.toFixed(0)} kWh/mês`;
     panelsNeededText.textContent = `${panelsNeeded} painéis`;
   }
 
@@ -1318,9 +1371,8 @@
     const powerTermRaw = Number(formData.get("powerTerm"));
     const powerTerm = Number.isFinite(powerTermRaw) && powerTermRaw > 0 ? powerTermRaw : null;
     const solarCoverage = 0.60;
-    const productionPerKwp = 125;
     const panelPower = 0.53;
-    const productionPerPanel = panelPower * productionPerKwp;
+    const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
 
     const monthlyKwhEstimate = priceValueNumber / pricePerKwh;
     const monthlyKwhCoveredEstimate = monthlyKwhEstimate * solarCoverage;
@@ -1337,6 +1389,9 @@
       priceLight: priceValueNumber,
       pricePerKwh,
       powerTerm,
+      zoneLabel: currentZoneLabel,
+      panelMonthlyKwh: productionPerPanel,
+      panelPowerKw: panelPower,
       monthlyKwhEstimate,
       monthlyKwhCoveredEstimate,
       monthlyKwpNeeded,

@@ -252,6 +252,8 @@
         <div id="sumPowerTerm">Termo de potência: sem dados</div>
         <div id="sumKwh">Consumo mensal (total): sem dados</div>
         <div id="sumKwhCovered">Consumo mensal (60%): sem dados</div>
+        <div id="sumZone">Zona: sem dados</div>
+        <div id="sumPanelProduction">Produção média por painel: sem dados</div>
         <div id="sumPanels">Painéis necessários: sem dados</div>
         <div id="sumAdditional">Informações adicionais: sem dados</div>
         <div id="sumEquipments">Equipamentos: sem dados</div>
@@ -318,6 +320,8 @@
   const sumPricePerKwh = document.getElementById("sumPricePerKwh");
   const sumKwh = document.getElementById("sumKwh");
   const sumKwhCovered = document.getElementById("sumKwhCovered");
+  const sumZone = document.getElementById("sumZone");
+  const sumPanelProduction = document.getElementById("sumPanelProduction");
   const sumPanels = document.getElementById("sumPanels");
   const sumAdditional = document.getElementById("sumAdditional");
   const sumEquipments = document.getElementById("sumEquipments");
@@ -379,6 +383,16 @@
     }
     sumKwh.textContent = `Consumo mensal (total): ${Number(questionnaireData.monthlyKwhEstimate || 0).toFixed(1)} kWh`;
     sumKwhCovered.textContent = `Consumo mensal (60%): ${Number(questionnaireData.monthlyKwhCoveredEstimate || 0).toFixed(1)} kWh`;
+    if (questionnaireData.zoneLabel) {
+      sumZone.textContent = `Zona: ${questionnaireData.zoneLabel}`;
+    } else {
+      sumZone.textContent = "Zona: não disponível";
+    }
+    if (questionnaireData.panelMonthlyKwh !== undefined && Number.isFinite(Number(questionnaireData.panelMonthlyKwh))) {
+      sumPanelProduction.textContent = `Produção média por painel: ${Number(questionnaireData.panelMonthlyKwh).toFixed(0)} kWh/mês`;
+    } else {
+      sumPanelProduction.textContent = "Produção média por painel: não disponível";
+    }
     sumPanels.textContent = `Painéis necessários: ${Number(questionnaireData.panelsNeeded || 0)} painéis`;
     sumAdditional.textContent = `Informações adicionais: ${additionalLabels.length ? "ver abaixo" : "nenhuma"}`;
     sumEquipments.textContent = `Equipamentos: ${additionalLabels.length ? additionalLabels.join(", ") : "nenhum"}`;
@@ -435,6 +449,10 @@
     if (questionnaireData.priceLight !== undefined) lines.push(`Preço da luz: ${Number(questionnaireData.priceLight).toFixed(0)}€`);
     if (questionnaireData.pricePerKwh !== undefined && Number.isFinite(Number(questionnaireData.pricePerKwh))) {
       lines.push(`Preço por kWh: ${Number(questionnaireData.pricePerKwh).toFixed(4)}€`);
+    }
+    if (questionnaireData.zoneLabel) lines.push(`Zona: ${questionnaireData.zoneLabel}`);
+    if (questionnaireData.panelMonthlyKwh !== undefined && Number.isFinite(Number(questionnaireData.panelMonthlyKwh))) {
+      lines.push(`Produção média por painel: ${Number(questionnaireData.panelMonthlyKwh).toFixed(0)} kWh/mês`);
     }
     if (questionnaireData.powerTerm !== undefined && Number.isFinite(Number(questionnaireData.powerTerm))) {
       lines.push(`Termo de potência: ${Number(questionnaireData.powerTerm).toFixed(2)} kVA`);
