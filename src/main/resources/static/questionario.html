@@ -844,7 +844,7 @@
 
     const pricePerKwhRaw = Number(pricePerKwhInput.value);
     const pricePerKwh = Number.isFinite(pricePerKwhRaw) && pricePerKwhRaw > 0 ? pricePerKwhRaw : 0.20;
-    const solarCoverage = 0.60;
+    const solarCoverage = 0.75;
     const productionPerKwp = 125;
     const panelPower = 0.53;
     const productionPerPanel = panelPower * productionPerKwp;
