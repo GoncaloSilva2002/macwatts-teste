@@ -62,6 +62,10 @@ public class QuoteEmailService {
         this.resendApiKey = resendApiKey;
         this.resendFrom = resendFrom;
         this.resendEnabled = resendEnabled;
+        log.info("Email transport: Resend {} (from: {}), SMTP host: {}",
+                (resendEnabled && resendApiKey != null && !resendApiKey.isBlank()) ? "ATIVO" : "INATIVO",
+                (resendFrom == null || resendFrom.isBlank()) ? "não definido" : resendFrom,
+                (smtpHost == null || smtpHost.isBlank()) ? "não definido" : smtpHost);
     }
 
     public boolean sendQuotePdf(QuoteEmailRequest request) throws Exception {
