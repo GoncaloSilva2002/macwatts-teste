@@ -9,41 +9,65 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Service
 public class QuoteEmailService {
     private static final Logger log = LoggerFactory.getLogger(QuoteEmailService.class);
 
     private final JavaMailSender mailSender;
+    private final ObjectMapper objectMapper;
     private final String companyEmail;
     private final String fromEmail;
     private final String smtpHost;
     private final String smtpUsername;
     private final String smtpPassword;
     private final boolean skipWhenSmtpMissing;
+    private final String resendApiKey;
+    private final String resendFrom;
+    private final boolean resendEnabled;
 
     public QuoteEmailService(
             JavaMailSender mailSender,
+            ObjectMapper objectMapper,
             @Value("${app.company.email}") String companyEmail,
             @Value("${app.mail.from:${spring.mail.username:no-reply@localhost}}") String fromEmail,
             @Value("${spring.mail.host:}") String smtpHost,
             @Value("${spring.mail.username:}") String smtpUsername,
             @Value("${spring.mail.password:}") String smtpPassword,
-            @Value("${app.mail.skip-when-smtp-missing:true}") boolean skipWhenSmtpMissing) {
+            @Value("${app.mail.skip-when-smtp-missing:true}") boolean skipWhenSmtpMissing,
+            @Value("${app.resend.api-key:}") String resendApiKey,
+            @Value("${app.resend.from:${app.mail.from}}") String resendFrom,
+            @Value("${app.resend.enabled:true}") boolean resendEnabled) {
         this.mailSender = mailSender;
+        this.objectMapper = objectMapper;
         this.companyEmail = companyEmail;
         this.fromEmail = fromEmail;
         this.smtpHost = smtpHost;
         this.smtpUsername = smtpUsername;
         this.smtpPassword = smtpPassword;
         this.skipWhenSmtpMissing = skipWhenSmtpMissing;
+        this.resendApiKey = resendApiKey;
+        this.resendFrom = resendFrom;
+        this.resendEnabled = resendEnabled;
     }
 
     public boolean sendQuotePdf(QuoteEmailRequest request) throws Exception {
+        if (resendEnabled && resendApiKey != null && !resendApiKey.isBlank()) {
+            return sendQuoteViaResend(request);
+        }
         if (smtpHost == null || smtpHost.isBlank()) {
             if (skipWhenSmtpMissing) {
                 log.warn("SMTP não configurado; envio de email ignorado (modo teste).");
@@ -111,6 +135,119 @@ public class QuoteEmailService {
         return true;
     }
 
+    private boolean sendQuoteViaResend(QuoteEmailRequest request) throws Exception {
+        byte[] invoicePrimary = decodeBase64(request.getInvoiceAttachmentBase64());
+        byte[] invoiceAlt = decodeBase64(request.getInvoiceAttachmentBase64Alt());
+
+        boolean companySent = false;
+        boolean clientSent = false;
+        Exception clientError = null;
+
+        try {
+            sendResendEmail(
+                    request.getClientEmail().trim(),
+                    "Pedido de Orçamento Solar",
+                    buildClientBody(request),
+                    invoicePrimary,
+                    request.getInvoiceAttachmentName(),
+                    request.getInvoiceAttachmentMime(),
+                    invoiceAlt,
+                    request.getInvoiceAttachmentNameAlt(),
+                    request.getInvoiceAttachmentMimeAlt(),
+                    request.getInvoiceAttachmentBase64(),
+                    request.getInvoiceAttachmentBase64Alt()
+            );
+            clientSent = true;
+        } catch (Exception ex) {
+            clientError = ex;
+            log.warn("Falha ao enviar email (Resend) para o cliente: {}", ex.getMessage());
+        }
+
+        sendResendEmail(
+                companyEmail.trim(),
+                "Novo Pedido de Orçamento Solar",
+                buildCompanyBody(request),
+                invoicePrimary,
+                request.getInvoiceAttachmentName(),
+                request.getInvoiceAttachmentMime(),
+                invoiceAlt,
+                request.getInvoiceAttachmentNameAlt(),
+                request.getInvoiceAttachmentMimeAlt(),
+                request.getInvoiceAttachmentBase64(),
+                request.getInvoiceAttachmentBase64Alt()
+        );
+        companySent = true;
+
+        if (!companySent && clientError != null) {
+            throw clientError;
+        }
+        if (!clientSent && clientError != null) {
+            log.warn("Email enviado para a empresa, mas falhou para o cliente.");
+        }
+        return true;
+    }
+
+    private void sendResendEmail(String to, String subject, String body, byte[] invoiceBytes, String invoiceName, String invoiceMime,
+                                 byte[] invoiceBytesAlt, String invoiceNameAlt, String invoiceMimeAlt,
+                                 String invoiceBase64, String invoiceBase64Alt) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("from", resendFrom);
+        payload.put("to", List.of(to));
+        payload.put("subject", subject);
+        payload.put("text", body);
+
+        List<Map<String, Object>> attachments = new ArrayList<>();
+        Map<String, Object> primaryAttachment = buildResendAttachment(invoiceBytes, invoiceName, invoiceMime, invoiceBase64);
+        if (primaryAttachment != null) {
+            attachments.add(primaryAttachment);
+        }
+        if (!isSameAttachment(invoiceBytes, invoiceName, invoiceMime, invoiceBase64, invoiceBytesAlt, invoiceNameAlt, invoiceMimeAlt, invoiceBase64Alt)) {
+            Map<String, Object> altAttachment = buildResendAttachment(invoiceBytesAlt, invoiceNameAlt, invoiceMimeAlt, invoiceBase64Alt);
+            if (altAttachment != null) {
+                attachments.add(altAttachment);
+            }
+        }
+        if (!attachments.isEmpty()) {
+            payload.put("attachments", attachments);
+        }
+
+        String json = objectMapper.writeValueAsString(payload);
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.resend.com/emails"))
+                .header("Authorization", "Bearer " + resendApiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new IllegalStateException("Resend error: HTTP " + response.statusCode() + " - " + response.body());
+        }
+    }
+
+    private Map<String, Object> buildResendAttachment(byte[] bytes, String nameRaw, String mimeRaw, String base64) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        String resolvedMime = resolveMime(mimeRaw, base64);
+        String name = (nameRaw == null || nameRaw.isBlank()) ? "fatura-luz" : nameRaw.trim();
+        if (!name.contains(".") && resolvedMime != null) {
+            name = name + mimeToExtension(resolvedMime);
+        }
+        String content = extractBase64Content(base64);
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        Map<String, Object> attachment = new HashMap<>();
+        attachment.put("filename", name);
+        attachment.put("content", content);
+        if (resolvedMime != null && !resolvedMime.isBlank()) {
+            attachment.put("content_type", resolvedMime);
+        }
+        return attachment;
+    }
+
     private byte[] decodeBase64(String base64Raw) {
         if (base64Raw == null || base64Raw.isBlank()) {
             return null;
@@ -123,6 +260,14 @@ public class QuoteEmailService {
         }
 
         return Base64.getDecoder().decode(cleaned);
+    }
+
+    private String extractBase64Content(String base64Raw) {
+        if (base64Raw == null || base64Raw.isBlank()) {
+            return null;
+        }
+        int commaIndex = base64Raw.indexOf(',');
+        return commaIndex >= 0 ? base64Raw.substring(commaIndex + 1) : base64Raw;
     }
 
     private String buildClientBody(QuoteEmailRequest request) {
