@@ -150,6 +150,65 @@
       overflow: hidden;
     }
 
+    .compass {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
+      pointer-events: none;
+      z-index: 600;
+    }
+
+    .compass::before {
+      content: "";
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 14px solid #22c55e;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+    }
+
+    .compass .north {
+      margin-top: 6px;
+    }
+
+    .compass .dir {
+      position: absolute;
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.78);
+      letter-spacing: 0.04em;
+    }
+
+    .compass .dir.e {
+      right: 6px;
+    }
+
+    .compass .dir.s {
+      bottom: 4px;
+    }
+
+    .compass .dir.o {
+      left: 6px;
+    }
+
     .meta {
       margin-top: 10px;
       display: grid;
@@ -338,6 +397,30 @@
     .modal-card p {
       margin: 0;
       color: #4b5563;
+      font-size: 0.92rem;
+    }
+
+    .alert-modal {
+      width: min(440px, 92vw);
+      background: #ffffff;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 20px 30px rgba(15, 23, 42, 0.2);
+      display: grid;
+      gap: 10px;
+    }
+
+    .alert-title {
+      margin: 0;
+      color: #991b1b;
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .alert-text {
+      margin: 0;
+      color: #374151;
       font-size: 0.92rem;
     }
 
@@ -532,7 +615,14 @@
     <article class="card">
       <h2 id="clientAddressTitle">Morada do cliente</h2>
       <p class="sub">Vista da área escolhida no passo anterior.</p>
-      <div id="roofPreview"></div>
+      <div id="roofPreview" style="position: relative;">
+        <div class="compass" aria-hidden="true">
+          <span class="dir e">E</span>
+          <span class="dir s">S</span>
+          <span class="dir o">O</span>
+          <span class="north">N</span>
+        </div>
+      </div>
           <div class="meta">
             <div id="centerText">Centro: sem dados</div>
             <div id="areaText">Área estimada: sem dados</div>
@@ -573,7 +663,7 @@
           <label class="label" for="priceLight">Preço da luz</label>
           <div class="price-slider-wrap">
             <div class="price-value" id="priceValue">0€</div>
-            <input id="priceLight" name="priceLight" type="range" min="0" max="400" step="1" value="0">
+            <input id="priceLight" name="priceLight" type="range" min="0" max="2000" step="1" value="0">
           </div>
           <div>
             <label class="label" for="pricePerKwh">Preço por kWh (opcional)</label>
@@ -586,11 +676,13 @@
             <div class="hint">Exemplo: 10.35 kVA.</div>
           </div>
           <div class="calc-box">
-            <div>Consumo estimado por mês: <strong id="monthlyKwhTotalText">0.0 kWh</strong></div>
-            <div>Consumo coberto (60%): <strong id="monthlyKwhCoveredText">0.0 kWh</strong></div>
+            <div>Consumo total por mês: <strong id="monthlyKwhTotalText">0.0 kWh</strong></div>
+            <div>Consumo coberto: <strong id="monthlyKwhCoveredText">0.0 kWh</strong></div>
+            <div>Consumo coberto ajustado(60%): <strong id="monthlyKwhCoveredAdjustedText">0.0 kWh</strong></div>
             <div>kWp necessário por mês: <strong id="monthlyKwpText">0.00 kWp</strong></div>
             <div>Produção média por painel: <strong id="panelProductionText">0 kWh/mês</strong></div>
             <div>Painéis necessários: <strong id="panelsNeededText">0 painéis</strong></div>
+            <div id="powerTermWarning" class="hint"></div>
           </div>
           <button type="button" class="additional-trigger" id="openAdditionalInfo">Informações adicionais</button>
           <div class="additional-info" id="additionalInfoText">Sem consumos adicionais selecionados.</div>
@@ -622,9 +714,9 @@
     <h3 id="additionalTitle">Em que altura do dia é que consome mais energia?</h3>
     <div class="modal-step active" data-step="1">
         <p>Selecione a parte do dia que consome mais eletricidade.</p>
-      <label class="choice"><input type="radio" name="usageTime" value="manhas"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Manhãs (08h:00-16h:00)</span></label>
-      <label class="choice"><input type="radio" name="usageTime" value="tardes"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Tardes (16h:00-00h:00)</span></label>
-      <label class="choice"><input type="radio" name="usageTime" value="noites"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Noites (00h:00-08h:00)</span></label>
+      <label class="choice"><input type="radio" name="usageTime" value="manhas"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Manhãs (06h:00-14h:00)</span></label>
+      <label class="choice"><input type="radio" name="usageTime" value="tardes"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Tardes (14h:00-18h:00)</span></label>
+      <label class="choice"><input type="radio" name="usageTime" value="noites"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Noites (18h:00-06h:00)</span></label>
       <label class="choice"><input type="radio" name="usageTime" value="diaTodo"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg>Dia todo</span></label>
     </div>
     <div class="modal-step" data-step="2">
@@ -644,6 +736,16 @@
     <div class="modal-actions">
       <button type="button" class="back" id="closeAdditionalModal">Fechar</button>
       <button type="button" class="save" id="additionalNext">Seguinte</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="powerTermModal" role="dialog" aria-modal="true" aria-labelledby="powerTermTitle">
+  <div class="alert-modal">
+    <h3 id="powerTermTitle" class="alert-title">Termo de potência insuficiente</h3>
+    <p class="alert-text" id="powerTermModalText">Não dá: tem de aumentar o termo de potência.</p>
+    <div class="modal-actions">
+      <button type="button" class="save" id="powerTermClose">Entendi</button>
     </div>
   </div>
 </div>
@@ -684,15 +786,20 @@
   const powerTermInput = document.getElementById("powerTerm");
   const monthlyKwhTotalText = document.getElementById("monthlyKwhTotalText");
   const monthlyKwhCoveredText = document.getElementById("monthlyKwhCoveredText");
+  const monthlyKwhCoveredAdjustedText = document.getElementById("monthlyKwhCoveredAdjustedText");
   const monthlyKwpText = document.getElementById("monthlyKwpText");
   const panelProductionText = document.getElementById("panelProductionText");
   const panelsNeededText = document.getElementById("panelsNeededText");
+  const powerTermWarning = document.getElementById("powerTermWarning");
   const openAdditionalInfo = document.getElementById("openAdditionalInfo");
   const additionalInfoText = document.getElementById("additionalInfoText");
   const additionalModal = document.getElementById("additionalModal");
   const additionalTitle = document.getElementById("additionalTitle");
   const closeAdditionalModal = document.getElementById("closeAdditionalModal");
   const additionalNext = document.getElementById("additionalNext");
+  const powerTermModal = document.getElementById("powerTermModal");
+  const powerTermModalText = document.getElementById("powerTermModalText");
+  const powerTermClose = document.getElementById("powerTermClose");
   const invoiceCapture = document.getElementById("invoiceCapture");
   const invoicePdfUpload = document.getElementById("invoicePdfUpload");
   const openInvoiceMenu = document.getElementById("openInvoiceMenu");
@@ -718,6 +825,7 @@
   const modalSteps = Array.from(document.querySelectorAll(".modal-step"));
   const totalAdditionalSteps = modalSteps.length;
   let currentAdditionalStep = 1;
+  let showPowerTermPopup = false;
 
   let roofData = loadStoredJson("roofSelection");
   let savedQuestionnaire = loadStoredJson("contactQuestionnaire");
@@ -775,6 +883,10 @@
     tap: false
   }).setView([38.7223, -9.1393], 12);
 
+  const panelPane = map.createPane("panelPane");
+  panelPane.style.zIndex = 550;
+  const panelLayer = L.layerGroup([], { pane: "panelPane" }).addTo(map);
+
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 22,
     maxNativeZoom: 19,
@@ -782,6 +894,7 @@
   }).addTo(map);
 
   let currentZoneLabel = null;
+  let lastPanelsNeeded = 0;
 
   if (!roofData || !roofData.center || !Array.isArray(roofData.points) || roofData.points.length < 3) {
     statusEl.textContent = "Não encontrámos seleção de telhado. Volta ao passo anterior.";
@@ -809,6 +922,7 @@
       REGION_ZONE_LABELS
     );
     zoneText.textContent = currentZoneLabel ? `Zona: ${currentZoneLabel}` : "Zona: configure latitudes";
+    setTimeout(() => updatePanelOverlay(lastPanelsNeeded), 0);
   }
 
   backBtn.addEventListener("click", () => {
@@ -864,6 +978,28 @@
     }
   }
 
+  function panelsFromKwp(kwp) {
+    if (!Number.isFinite(kwp) || kwp <= 0) return 0;
+    if (kwp <= 1.1) return 2;
+    if (kwp <= 2.1) return 4;
+    if (kwp <= 3.2) return 6;
+    if (kwp <= 4.2) return 8;
+    if (kwp <= 5.3) return 10;
+    if (kwp <= 6.4) return 12;
+    if (kwp <= 7.4) return 14;
+    if (kwp <= 8.5) return 16;
+    if (kwp <= 10.6) return 20;
+    if (kwp <= 11.7) return 22;
+    if (kwp <= 13.8) return 26;
+    return 26;
+  }
+
+  function requiredKvaFromKwp(kwp) {
+    if (!Number.isFinite(kwp) || kwp <= 0) return null;
+    const inverterPowerKw = kwp / 1.2;
+    return inverterPowerKw / 0.9;
+  }
+
   function renderAdditionalSummary() {
     const labels = selectedAdditionalLabels();
     const phaseLabel = getPhaseTypeLabel();
@@ -897,23 +1033,196 @@
 
     const pricePerKwhRaw = Number(pricePerKwhInput.value);
     const pricePerKwh = Number.isFinite(pricePerKwhRaw) && pricePerKwhRaw > 0 ? pricePerKwhRaw : 0.20;
+    const powerTermRaw = Number(powerTermInput.value);
+    const powerTerm = Number.isFinite(powerTermRaw) && powerTermRaw > 0 ? powerTermRaw : null;
     const solarCoverage = 0.60;
     const panelPower = 0.53;
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
+    const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
+    const usageFactor = usageTime === "noites" ? 0.28 : 0.61;
 
     const monthlyKwhTotal = value / pricePerKwh;
-    const monthlyKwhCovered = monthlyKwhTotal * solarCoverage;
-    const basePanelsNeeded = monthlyKwhCovered <= 0 ? 0 : Math.ceil(monthlyKwhCovered / productionPerPanel);
-    let panelsNeeded = basePanelsNeeded + getAdditionalCount();
+    const monthlyKwhCovered = monthlyKwhTotal * usageFactor;
+    const monthlyKwhCoveredAdjusted = monthlyKwhCovered * solarCoverage;
+    const requiredKwp = (monthlyKwhCoveredAdjusted / productionPerPanel) * panelPower / 1.2;
+    let panelsNeeded = panelsFromKwp(requiredKwp) + getAdditionalCount();
     if (panelsNeeded % 2 !== 0) {
       panelsNeeded += 1;
     }
 
     monthlyKwhTotalText.textContent = `${monthlyKwhTotal.toFixed(1)} kWh`;
     monthlyKwhCoveredText.textContent = `${monthlyKwhCovered.toFixed(1)} kWh`;
-    monthlyKwpText.textContent = `${(panelsNeeded * panelPower).toFixed(2)} kWp`;
+    if (monthlyKwhCoveredAdjustedText) {
+      monthlyKwhCoveredAdjustedText.textContent = `${monthlyKwhCoveredAdjusted.toFixed(1)} kWh`;
+    }
+    const monthlyKwpRaw = panelsNeeded * panelPower;
+    const monthlyKwpAdjusted = monthlyKwpRaw / 1.2;
+    monthlyKwpText.textContent = `${requiredKwp.toFixed(2)} kWp`;
     panelProductionText.textContent = `${productionPerPanel.toFixed(0)} kWh/mês`;
     panelsNeededText.textContent = `${panelsNeeded} painéis`;
+    lastPanelsNeeded = panelsNeeded;
+    updatePanelOverlay(panelsNeeded);
+
+    if (powerTermWarning) {
+      const requiredKva = requiredKvaFromKwp(requiredKwp);
+      if (powerTerm && requiredKva && powerTerm < requiredKva) {
+        powerTermWarning.textContent = "O termo de potência pode ser insuficiente para esta instalação.";
+        if (showPowerTermPopup && powerTermModal && powerTermModalText) {
+          powerTermModalText.textContent = "Aumentar o termo de potência.";
+          powerTermModal.classList.add("open");
+        }
+      } else {
+        powerTermWarning.textContent = "";
+      }
+    }
+    showPowerTermPopup = false;
+  }
+
+  function pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x, yi = polygon[i].y;
+      const xj = polygon[j].x, yj = polygon[j].y;
+      const intersect = ((yi > point.y) !== (yj > point.y))
+        && (point.x < (xj - xi) * (point.y - yi) / ((yj - yi) || 1e-9) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function canPlaceRect(center, width, height, polygon) {
+    const halfW = width / 2;
+    const halfH = height / 2;
+    const corners = [
+      { x: center.x - halfW, y: center.y - halfH },
+      { x: center.x + halfW, y: center.y - halfH },
+      { x: center.x + halfW, y: center.y + halfH },
+      { x: center.x - halfW, y: center.y + halfH }
+    ];
+    return corners.every((corner) => pointInPolygon(corner, polygon));
+  }
+
+  function polygonAreaPx(points) {
+    let area = 0;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      area += (points[j].x + points[i].x) * (points[j].y - points[i].y);
+    }
+    return Math.abs(area / 2);
+  }
+
+  function getPanelPixelSize(polygonPoints) {
+    const roofAreaSqm = Number(roofData && roofData.areaSqm);
+    const areaPx = polygonAreaPx(polygonPoints);
+    if (!Number.isFinite(roofAreaSqm) || roofAreaSqm <= 0 || areaPx <= 0) {
+      return null;
+    }
+    const pxPerMeter = Math.sqrt(areaPx / roofAreaSqm);
+    const panelWidthMeters = 2.278;
+    const panelHeightMeters = 1.134;
+    const gapMeters = 0.025;
+    return {
+      width: Math.max(10, panelWidthMeters * pxPerMeter),
+      height: Math.max(6, panelHeightMeters * pxPerMeter),
+      gap: Math.max(2, gapMeters * pxPerMeter)
+    };
+  }
+
+  function buildPanelPositions(polygonPoints, count) {
+    if (!polygonPoints || polygonPoints.length < 3 || count <= 0) {
+      return [];
+    }
+    const fallback = (() => {
+      const mapSize = map.getSize();
+      const baseWidth = Math.max(10, Math.round(mapSize.x / 42));
+      const baseHeight = Math.max(6, Math.round(baseWidth * 0.62));
+      const baseGap = Math.max(2, Math.round(baseWidth * 0.2));
+      return { width: baseWidth, height: baseHeight, gap: baseGap };
+    })();
+    const realSize = getPanelPixelSize(polygonPoints);
+    const base = realSize || fallback;
+    let best = [];
+    const orientations = [
+      { width: base.width, height: base.height },
+      { width: base.height, height: base.width }
+    ];
+    const offsetSteps = [0, 0.33, 0.66];
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    polygonPoints.forEach((point) => {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    });
+
+    for (const orient of orientations) {
+      const width = orient.width;
+      const height = orient.height;
+      const gap = base.gap;
+      const stepX = width + gap;
+      const stepY = height + gap;
+
+      for (const ox of offsetSteps) {
+        for (const oy of offsetSteps) {
+          const startX = minX + width / 2 + stepX * ox;
+          const startY = minY + height / 2 + stepY * oy;
+          const placed = [];
+
+          for (let y = startY; y <= maxY - height / 2; y += stepY) {
+            for (let x = startX; x <= maxX - width / 2; x += stepX) {
+              if (canPlaceRect({ x, y }, width, height, polygonPoints)) {
+                placed.push({ x, y, width, height });
+                if (placed.length >= count) break;
+              }
+            }
+            if (placed.length >= count) break;
+          }
+          if (placed.length >= count) {
+            return placed;
+          }
+          if (placed.length > best.length) {
+            best = placed;
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  function updatePanelOverlay(panelsNeeded) {
+    if (!roofData || !Array.isArray(roofData.points) || roofData.points.length < 3) {
+      panelLayer.clearLayers();
+      return;
+    }
+    if (!Number.isFinite(panelsNeeded) || panelsNeeded <= 0) {
+      panelLayer.clearLayers();
+      return;
+    }
+    const polygonPoints = roofData.points.map((point) => map.latLngToLayerPoint([point.lat, point.lng]));
+    const positions = buildPanelPositions(polygonPoints, panelsNeeded);
+    panelLayer.clearLayers();
+
+    positions.forEach((pos) => {
+      const halfW = pos.width / 2;
+      const halfH = pos.height / 2;
+      const corners = [
+        map.layerPointToLatLng([pos.x - halfW, pos.y - halfH]),
+        map.layerPointToLatLng([pos.x + halfW, pos.y - halfH]),
+        map.layerPointToLatLng([pos.x + halfW, pos.y + halfH]),
+        map.layerPointToLatLng([pos.x - halfW, pos.y + halfH])
+      ];
+      L.polygon(corners, {
+        pane: "panelPane",
+        color: "#0b0b0b",
+        weight: 1,
+        fillColor: "#0b0b0b",
+        fillOpacity: 0.7,
+        interactive: false
+      }).addTo(panelLayer);
+    });
   }
 
   openAdditionalInfo.addEventListener("click", () => {
@@ -1259,6 +1568,20 @@
     }
   });
 
+  if (powerTermClose) {
+    powerTermClose.addEventListener("click", () => {
+      powerTermModal.classList.remove("open");
+    });
+  }
+
+  if (powerTermModal) {
+    powerTermModal.addEventListener("click", (event) => {
+      if (event.target === powerTermModal) {
+        powerTermModal.classList.remove("open");
+      }
+    });
+  }
+
   function setAdditionalStep(step) {
     currentAdditionalStep = Math.min(Math.max(step, 1), totalAdditionalSteps);
     modalSteps.forEach((section) => {
@@ -1291,7 +1614,10 @@
   });
 
   [...batteryChoiceInputs, ...phaseTypeInputs, ...usageTimeInputs].forEach((input) => {
-    input.addEventListener("change", renderAdditionalSummary);
+    input.addEventListener("change", () => {
+      renderAdditionalSummary();
+      renderPriceSlider();
+    });
   });
 
   if (savedQuestionnaire) {
@@ -1335,7 +1661,10 @@
     invoiceStatus.textContent = "Fatura carregada. Será enviada por email.";
   }
 
-  priceLight.addEventListener("input", renderPriceSlider);
+  priceLight.addEventListener("input", () => {
+    showPowerTermPopup = true;
+    renderPriceSlider();
+  });
   pricePerKwhInput.addEventListener("input", () => {
     let value = pricePerKwhInput.value.replace(/[^0-9.]/g, "");
     const parts = value.split(".");
@@ -1346,6 +1675,7 @@
     const intPart = (intPartRaw || "").slice(0, 2);
     const decPart = (decPartRaw || "").slice(0, 4);
     pricePerKwhInput.value = decPartRaw !== undefined ? `${intPart}.${decPart}` : intPart;
+    showPowerTermPopup = true;
     renderPriceSlider();
   });
   powerTermInput.addEventListener("input", () => {
@@ -1373,16 +1703,23 @@
     const solarCoverage = 0.60;
     const panelPower = 0.53;
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
+    const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
+    const usageFactor = usageTime === "noites" ? 0.28 : 0.61;
 
     const monthlyKwhEstimate = priceValueNumber / pricePerKwh;
-    const monthlyKwhCoveredEstimate = monthlyKwhEstimate * solarCoverage;
-    const basePanelsNeeded = monthlyKwhCoveredEstimate <= 0 ? 0 : Math.ceil(monthlyKwhCoveredEstimate / productionPerPanel);
+    const monthlyKwhCoveredEstimate = monthlyKwhEstimate * usageFactor;
+    const monthlyKwhCoveredAdjusted = monthlyKwhCoveredEstimate * solarCoverage;
+    const requiredKwp = (monthlyKwhCoveredAdjusted / productionPerPanel) * panelPower / 1.2;
     const additionalPanels = getAdditionalCount();
-    let totalPanels = basePanelsNeeded + additionalPanels;
+    let totalPanels = panelsFromKwp(requiredKwp) + additionalPanels;
     if (totalPanels % 2 !== 0) {
       totalPanels += 1;
     }
-    const monthlyKwpNeeded = totalPanels * panelPower;
+    const requiredKva = requiredKvaFromKwp(requiredKwp);
+
+    if (powerTerm && requiredKva && powerTerm < requiredKva) {
+      powerTermWarning.textContent = "Aumentar o termo de potência.";
+    }
 
     const payload = {
       propertyType: formData.get("propertyType"),
