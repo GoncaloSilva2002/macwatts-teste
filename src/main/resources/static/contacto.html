@@ -251,7 +251,8 @@
         <div id="sumPricePerKwh">Preço por kWh: sem dados</div>
         <div id="sumPowerTerm">Termo de potência: sem dados</div>
         <div id="sumKwh">Consumo mensal (total): sem dados</div>
-        <div id="sumKwhCovered">Consumo mensal (60%): sem dados</div>
+        <div id="sumKwhCovered">Consumo mensal: sem dados</div>
+        <div id="sumKwhCoveredAdjusted">Consumo mensal (60%): sem dados</div>
         <div id="sumZone">Zona: sem dados</div>
         <div id="sumPanelProduction">Produção média por painel: sem dados</div>
         <div id="sumPanels">Painéis necessários: sem dados</div>
@@ -320,6 +321,7 @@
   const sumPricePerKwh = document.getElementById("sumPricePerKwh");
   const sumKwh = document.getElementById("sumKwh");
   const sumKwhCovered = document.getElementById("sumKwhCovered");
+  const sumKwhCoveredAdjusted = document.getElementById("sumKwhCoveredAdjusted");
   const sumZone = document.getElementById("sumZone");
   const sumPanelProduction = document.getElementById("sumPanelProduction");
   const sumPanels = document.getElementById("sumPanels");
@@ -382,7 +384,10 @@
       sumPricePerKwh.textContent = "Preço por kWh: 0.20€";
     }
     sumKwh.textContent = `Consumo mensal (total): ${Number(questionnaireData.monthlyKwhEstimate || 0).toFixed(1)} kWh`;
-    sumKwhCovered.textContent = `Consumo mensal (60%): ${Number(questionnaireData.monthlyKwhCoveredEstimate || 0).toFixed(1)} kWh`;
+    sumKwhCovered.textContent = `Consumo mensal: ${Number(questionnaireData.monthlyKwhCoveredEstimate || 0).toFixed(1)} kWh`;
+    if (sumKwhCoveredAdjusted) {
+      sumKwhCoveredAdjusted.textContent = `Consumo mensal (60%): ${Number(questionnaireData.monthlyKwhCoveredAdjusted || 0).toFixed(1)} kWh`;
+    }
     if (questionnaireData.zoneLabel) {
       sumZone.textContent = `Zona: ${questionnaireData.zoneLabel}`;
     } else {
@@ -424,6 +429,11 @@
     return value.toFixed(decimals).replace(".", ",");
   }
 
+  function roundToOneDecimal(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round((value + Number.EPSILON) * 10) / 10;
+  }
+
   function formatAddressShort(address) {
     const raw = String(address || "").trim();
     if (!raw) return "";
@@ -458,8 +468,12 @@
       lines.push(`Termo de potência: ${Number(questionnaireData.powerTerm).toFixed(2)} kVA`);
     }
     if (questionnaireData.monthlyKwhEstimate) lines.push(`Consumo mensal (total): ${Number(questionnaireData.monthlyKwhEstimate).toFixed(1)} kWh`);
-    if (questionnaireData.monthlyKwhCoveredEstimate) lines.push(`Consumo mensal (60%): ${Number(questionnaireData.monthlyKwhCoveredEstimate).toFixed(1)} kWh`);
-    if (questionnaireData.monthlyKwpNeeded) lines.push(`kWp necessário: ${Number(questionnaireData.monthlyKwpNeeded).toFixed(2)} kWp`);
+    if (questionnaireData.monthlyKwhCoveredEstimate) lines.push(`Consumo mensal: ${Number(questionnaireData.monthlyKwhCoveredEstimate).toFixed(1)} kWh`);
+    if (questionnaireData.monthlyKwhCoveredAdjusted) lines.push(`Consumo mensal (60%): ${Number(questionnaireData.monthlyKwhCoveredAdjusted).toFixed(1)} kWh`);
+    if (questionnaireData.monthlyKwpNeeded) {
+      const roundedKwp = roundToOneDecimal(Number(questionnaireData.monthlyKwpNeeded));
+      lines.push(`kWp necessário: ${roundedKwp.toFixed(1)} kWp`);
+    }
     if (questionnaireData.panelsNeeded) lines.push(`Painéis necessários: ${Number(questionnaireData.panelsNeeded)}`);
 
     const usageTime = questionnaireData.additionalInfo && questionnaireData.additionalInfo.usageTime;

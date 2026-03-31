@@ -679,7 +679,7 @@
             <div>Consumo total por mês: <strong id="monthlyKwhTotalText">0.0 kWh</strong></div>
             <div>Consumo coberto: <strong id="monthlyKwhCoveredText">0.0 kWh</strong></div>
             <div>Consumo coberto ajustado(60%): <strong id="monthlyKwhCoveredAdjustedText">0.0 kWh</strong></div>
-            <div>kWp necessário por mês: <strong id="monthlyKwpText">0.00 kWp</strong></div>
+            <div>kWp necessário por mês: <strong id="monthlyKwpText">0.0 kWp</strong></div>
             <div>Produção média por painel: <strong id="panelProductionText">0 kWh/mês</strong></div>
             <div>Painéis necessários: <strong id="panelsNeededText">0 painéis</strong></div>
             <div id="powerTermWarning" class="hint"></div>
@@ -994,6 +994,11 @@
     return 26;
   }
 
+  function roundToOneDecimal(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round((value + Number.EPSILON) * 10) / 10;
+  }
+
   function requiredKvaFromKwp(kwp) {
     if (!Number.isFinite(kwp) || kwp <= 0) return null;
     const inverterPowerKw = kwp / 1.2;
@@ -1040,12 +1045,16 @@
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
     const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
     const usageFactor = usageTime === "noites" ? 0.28 : 0.61;
+    const wantsBattery = batteryChoiceInputs.find((input) => input.checked)?.value === "sim";
 
     const monthlyKwhTotal = value / pricePerKwh;
     const monthlyKwhCovered = monthlyKwhTotal * usageFactor;
     const monthlyKwhCoveredAdjusted = monthlyKwhCovered * solarCoverage;
-    const requiredKwp = (monthlyKwhCoveredAdjusted / productionPerPanel) * panelPower / 1.2;
-    let panelsNeeded = panelsFromKwp(requiredKwp) + getAdditionalCount();
+    const monthlyKwhForPanels = wantsBattery ? monthlyKwhTotal : monthlyKwhCovered;
+    const monthlyKwhForPanelsAdjusted = monthlyKwhForPanels * solarCoverage;
+    const requiredKwp = (monthlyKwhForPanelsAdjusted / productionPerPanel) * panelPower;
+    const requiredKwpRounded = roundToOneDecimal(requiredKwp);
+    let panelsNeeded = panelsFromKwp(requiredKwpRounded) + getAdditionalCount();
     if (panelsNeeded % 2 !== 0) {
       panelsNeeded += 1;
     }
@@ -1057,14 +1066,14 @@
     }
     const monthlyKwpRaw = panelsNeeded * panelPower;
     const monthlyKwpAdjusted = monthlyKwpRaw / 1.2;
-    monthlyKwpText.textContent = `${requiredKwp.toFixed(2)} kWp`;
+    monthlyKwpText.textContent = `${requiredKwpRounded.toFixed(1)} kWp`;
     panelProductionText.textContent = `${productionPerPanel.toFixed(0)} kWh/mês`;
     panelsNeededText.textContent = `${panelsNeeded} painéis`;
     lastPanelsNeeded = panelsNeeded;
     updatePanelOverlay(panelsNeeded);
 
     if (powerTermWarning) {
-      const requiredKva = requiredKvaFromKwp(requiredKwp);
+      const requiredKva = requiredKvaFromKwp(requiredKwpRounded);
       if (powerTerm && requiredKva && powerTerm < requiredKva) {
         powerTermWarning.textContent = "O termo de potência pode ser insuficiente para esta instalação.";
         if (showPowerTermPopup && powerTermModal && powerTermModalText) {
@@ -1090,7 +1099,29 @@
     return inside;
   }
 
-  function canPlaceRect(center, width, height, polygon) {
+  function distancePointToSegment(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+    const t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq;
+    const clamped = Math.min(1, Math.max(0, t));
+    const projX = a.x + clamped * dx;
+    const projY = a.y + clamped * dy;
+    return Math.hypot(point.x - projX, point.y - projY);
+  }
+
+  function minDistanceToEdges(point, polygon) {
+    let min = Infinity;
+    for (let i = 0; i < polygon.length; i++) {
+      const j = (i + 1) % polygon.length;
+      const dist = distancePointToSegment(point, polygon[i], polygon[j]);
+      if (dist < min) min = dist;
+    }
+    return min;
+  }
+
+  function canPlaceRect(center, width, height, polygon, margin = 0) {
     const halfW = width / 2;
     const halfH = height / 2;
     const corners = [
@@ -1099,7 +1130,10 @@
       { x: center.x + halfW, y: center.y + halfH },
       { x: center.x - halfW, y: center.y + halfH }
     ];
-    return corners.every((corner) => pointInPolygon(corner, polygon));
+    return corners.every((corner) => {
+      if (!pointInPolygon(corner, polygon)) return false;
+      return minDistanceToEdges(corner, polygon) >= margin;
+    });
   }
 
   function polygonAreaPx(points) {
@@ -1108,6 +1142,48 @@
       area += (points[j].x + points[i].x) * (points[j].y - points[i].y);
     }
     return Math.abs(area / 2);
+  }
+
+  function getPolygonCenter(points) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    points.forEach((point) => {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    });
+    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+  }
+
+  function rotatePoint(point, angle, origin) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const dx = point.x - origin.x;
+    const dy = point.y - origin.y;
+    return {
+      x: origin.x + dx * cos - dy * sin,
+      y: origin.y + dx * sin + dy * cos
+    };
+  }
+
+  function getPolygonOrientation(points) {
+    if (!points || points.length < 2) return 0;
+    let maxLen = 0;
+    let bestAngle = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      const dx = points[j].x - points[i].x;
+      const dy = points[j].y - points[i].y;
+      const len = Math.hypot(dx, dy);
+      if (len > maxLen) {
+        maxLen = len;
+        bestAngle = Math.atan2(dy, dx);
+      }
+    }
+    return bestAngle;
   }
 
   function getPanelPixelSize(polygonPoints) {
@@ -1127,7 +1203,7 @@
     };
   }
 
-  function buildPanelPositions(polygonPoints, count) {
+  function buildPanelPositions(polygonPoints, count, angle) {
     if (!polygonPoints || polygonPoints.length < 3 || count <= 0) {
       return [];
     }
@@ -1147,11 +1223,15 @@
     ];
     const offsetSteps = [0, 0.33, 0.66];
 
+    const origin = getPolygonCenter(polygonPoints);
+    const rotation = Number.isFinite(angle) ? angle : 0;
+    const rotatedPolygon = polygonPoints.map((point) => rotatePoint(point, -rotation, origin));
+
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    polygonPoints.forEach((point) => {
+    rotatedPolygon.forEach((point) => {
       minX = Math.min(minX, point.x);
       minY = Math.min(minY, point.y);
       maxX = Math.max(maxX, point.x);
@@ -1173,8 +1253,9 @@
 
           for (let y = startY; y <= maxY - height / 2; y += stepY) {
             for (let x = startX; x <= maxX - width / 2; x += stepX) {
-              if (canPlaceRect({ x, y }, width, height, polygonPoints)) {
-                placed.push({ x, y, width, height });
+              if (canPlaceRect({ x, y }, width, height, rotatedPolygon, base.gap)) {
+                const worldCenter = rotatePoint({ x, y }, rotation, origin);
+                placed.push({ x: worldCenter.x, y: worldCenter.y, width, height, angle: rotation });
                 if (placed.length >= count) break;
               }
             }
@@ -1202,18 +1283,27 @@
       return;
     }
     const polygonPoints = roofData.points.map((point) => map.latLngToLayerPoint([point.lat, point.lng]));
-    const positions = buildPanelPositions(polygonPoints, panelsNeeded);
+    const angle = getPolygonOrientation(polygonPoints);
+    const positions = buildPanelPositions(polygonPoints, panelsNeeded, angle);
     panelLayer.clearLayers();
 
     positions.forEach((pos) => {
       const halfW = pos.width / 2;
       const halfH = pos.height / 2;
-      const corners = [
-        map.layerPointToLatLng([pos.x - halfW, pos.y - halfH]),
-        map.layerPointToLatLng([pos.x + halfW, pos.y - halfH]),
-        map.layerPointToLatLng([pos.x + halfW, pos.y + halfH]),
-        map.layerPointToLatLng([pos.x - halfW, pos.y + halfH])
+      const relCorners = [
+        { x: -halfW, y: -halfH },
+        { x: halfW, y: -halfH },
+        { x: halfW, y: halfH },
+        { x: -halfW, y: halfH }
       ];
+      const corners = relCorners.map((corner) => {
+        const rotated = rotatePoint(
+          { x: pos.x + corner.x, y: pos.y + corner.y },
+          pos.angle || 0,
+          { x: pos.x, y: pos.y }
+        );
+        return map.layerPointToLatLng([rotated.x, rotated.y]);
+      });
       L.polygon(corners, {
         pane: "panelPane",
         color: "#0b0b0b",
@@ -1705,17 +1795,23 @@
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
     const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
     const usageFactor = usageTime === "noites" ? 0.28 : 0.61;
+    const wantsBattery = batteryChoiceInputs.find((input) => input.checked)?.value === "sim";
 
     const monthlyKwhEstimate = priceValueNumber / pricePerKwh;
     const monthlyKwhCoveredEstimate = monthlyKwhEstimate * usageFactor;
     const monthlyKwhCoveredAdjusted = monthlyKwhCoveredEstimate * solarCoverage;
-    const requiredKwp = (monthlyKwhCoveredAdjusted / productionPerPanel) * panelPower / 1.2;
+    const monthlyKwhForPanels = wantsBattery ? monthlyKwhEstimate : monthlyKwhCoveredEstimate;
+    const monthlyKwhForPanelsAdjusted = monthlyKwhForPanels * solarCoverage;
+    const requiredKwp = (monthlyKwhForPanelsAdjusted / productionPerPanel) * panelPower;
+    const requiredKwpRounded = roundToOneDecimal(requiredKwp);
     const additionalPanels = getAdditionalCount();
-    let totalPanels = panelsFromKwp(requiredKwp) + additionalPanels;
+    const basePanelsNeeded = panelsFromKwp(requiredKwpRounded);
+    const monthlyKwpNeeded = requiredKwpRounded;
+    let totalPanels = basePanelsNeeded + additionalPanels;
     if (totalPanels % 2 !== 0) {
       totalPanels += 1;
     }
-    const requiredKva = requiredKvaFromKwp(requiredKwp);
+    const requiredKva = requiredKvaFromKwp(requiredKwpRounded);
 
     if (powerTerm && requiredKva && powerTerm < requiredKva) {
       powerTermWarning.textContent = "Aumentar o termo de potência.";
@@ -1731,6 +1827,11 @@
       panelPowerKw: panelPower,
       monthlyKwhEstimate,
       monthlyKwhCoveredEstimate,
+      monthlyKwhCoveredAdjusted,
+      monthlyKwhForPanels,
+      monthlyKwhForPanelsAdjusted,
+      usageFactor,
+      solarCoverage,
       monthlyKwpNeeded,
       basePanelsNeeded,
       additionalPanels,
