@@ -635,7 +635,7 @@
                 <button type="button" class="save" id="openInvoiceCapture">Tirar fotografia</button>
                 <button type="button" class="save" id="openInvoicePdf">Carregar PDF</button>
               </div>
-              <div class="hint" id="invoiceStatus">Opcional. Vamos ler o preço da luz e €/kWh automaticamente.</div>
+              <div class="hint" id="invoiceStatus">Opcional. Vamos ler o preço da eletricidade e €/kWh automaticamente.</div>
             </div>
           </div>
     </article>
@@ -660,7 +660,7 @@
           </div>
         </div>
         <div>
-          <label class="label" for="priceLight">Preço da luz</label>
+          <label class="label" for="priceLight">Preço da Eletricidade S/Iva</label>
           <div class="price-slider-wrap">
             <div class="price-value" id="priceValue">0€</div>
             <input id="priceLight" name="priceLight" type="range" min="0" max="2000" step="1" value="0">
@@ -678,7 +678,6 @@
           <div class="calc-box">
             <div>Consumo total por mês: <strong id="monthlyKwhTotalText">0.0 kWh</strong></div>
             <div>Consumo coberto: <strong id="monthlyKwhCoveredText">0.0 kWh</strong></div>
-            <div>Consumo coberto ajustado(60%): <strong id="monthlyKwhCoveredAdjustedText">0.0 kWh</strong></div>
             <div>kWp necessário por mês: <strong id="monthlyKwpText">0.0 kWp</strong></div>
             <div>Produção média por painel: <strong id="panelProductionText">0 kWh/mês</strong></div>
             <div>Painéis necessários: <strong id="panelsNeededText">0 painéis</strong></div>
@@ -786,7 +785,6 @@
   const powerTermInput = document.getElementById("powerTerm");
   const monthlyKwhTotalText = document.getElementById("monthlyKwhTotalText");
   const monthlyKwhCoveredText = document.getElementById("monthlyKwhCoveredText");
-  const monthlyKwhCoveredAdjustedText = document.getElementById("monthlyKwhCoveredAdjustedText");
   const monthlyKwpText = document.getElementById("monthlyKwpText");
   const panelProductionText = document.getElementById("panelProductionText");
   const panelsNeededText = document.getElementById("panelsNeededText");
@@ -996,7 +994,11 @@
 
   function roundToOneDecimal(value) {
     if (!Number.isFinite(value)) return 0;
-    return Math.round((value + Number.EPSILON) * 10) / 10;
+    if (value <= 0) return 0;
+    const thousand = Math.floor((value + Number.EPSILON) * 1000);
+    const base = Math.floor(thousand / 100); // base at 1 decimal, as integer (e.g. 2.1 -> 21)
+    const remainder = thousand - base * 100; // 0..99 (represents 0.00..0.099)
+    return remainder > 40 ? (base + 1) / 10 : base / 10;
   }
 
   function requiredKvaFromKwp(kwp) {
@@ -1040,7 +1042,6 @@
     const pricePerKwh = Number.isFinite(pricePerKwhRaw) && pricePerKwhRaw > 0 ? pricePerKwhRaw : 0.20;
     const powerTermRaw = Number(powerTermInput.value);
     const powerTerm = Number.isFinite(powerTermRaw) && powerTermRaw > 0 ? powerTermRaw : null;
-    const solarCoverage = 0.60;
     const panelPower = 0.53;
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
     const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
@@ -1049,10 +1050,8 @@
 
     const monthlyKwhTotal = value / pricePerKwh;
     const monthlyKwhCovered = monthlyKwhTotal * usageFactor;
-    const monthlyKwhCoveredAdjusted = monthlyKwhCovered * solarCoverage;
     const monthlyKwhForPanels = wantsBattery ? monthlyKwhTotal : monthlyKwhCovered;
-    const monthlyKwhForPanelsAdjusted = monthlyKwhForPanels * solarCoverage;
-    const requiredKwp = (monthlyKwhForPanelsAdjusted / productionPerPanel) * panelPower;
+    const requiredKwp = (monthlyKwhForPanels / productionPerPanel) * panelPower;
     const requiredKwpRounded = roundToOneDecimal(requiredKwp);
     let panelsNeeded = panelsFromKwp(requiredKwpRounded) + getAdditionalCount();
     if (panelsNeeded % 2 !== 0) {
@@ -1061,9 +1060,6 @@
 
     monthlyKwhTotalText.textContent = `${monthlyKwhTotal.toFixed(1)} kWh`;
     monthlyKwhCoveredText.textContent = `${monthlyKwhCovered.toFixed(1)} kWh`;
-    if (monthlyKwhCoveredAdjustedText) {
-      monthlyKwhCoveredAdjustedText.textContent = `${monthlyKwhCoveredAdjusted.toFixed(1)} kWh`;
-    }
     const monthlyKwpRaw = panelsNeeded * panelPower;
     const monthlyKwpAdjusted = monthlyKwpRaw / 1.2;
     monthlyKwpText.textContent = `${requiredKwpRounded.toFixed(1)} kWp`;
@@ -1790,7 +1786,6 @@
     const pricePerKwh = Number.isFinite(pricePerKwhRaw) && pricePerKwhRaw > 0 ? pricePerKwhRaw : 0.20;
     const powerTermRaw = Number(formData.get("powerTerm"));
     const powerTerm = Number.isFinite(powerTermRaw) && powerTermRaw > 0 ? powerTermRaw : null;
-    const solarCoverage = 0.60;
     const panelPower = 0.53;
     const productionPerPanel = ZONE_PANEL_MONTHLY_KWH[currentZoneLabel] ?? DEFAULT_PANEL_MONTHLY_KWH;
     const usageTime = usageTimeInputs.find((input) => input.checked)?.value || null;
@@ -1799,10 +1794,8 @@
 
     const monthlyKwhEstimate = priceValueNumber / pricePerKwh;
     const monthlyKwhCoveredEstimate = monthlyKwhEstimate * usageFactor;
-    const monthlyKwhCoveredAdjusted = monthlyKwhCoveredEstimate * solarCoverage;
     const monthlyKwhForPanels = wantsBattery ? monthlyKwhEstimate : monthlyKwhCoveredEstimate;
-    const monthlyKwhForPanelsAdjusted = monthlyKwhForPanels * solarCoverage;
-    const requiredKwp = (monthlyKwhForPanelsAdjusted / productionPerPanel) * panelPower;
+    const requiredKwp = (monthlyKwhForPanels / productionPerPanel) * panelPower;
     const requiredKwpRounded = roundToOneDecimal(requiredKwp);
     const additionalPanels = getAdditionalCount();
     const basePanelsNeeded = panelsFromKwp(requiredKwpRounded);
@@ -1827,11 +1820,8 @@
       panelPowerKw: panelPower,
       monthlyKwhEstimate,
       monthlyKwhCoveredEstimate,
-      monthlyKwhCoveredAdjusted,
       monthlyKwhForPanels,
-      monthlyKwhForPanelsAdjusted,
       usageFactor,
-      solarCoverage,
       monthlyKwpNeeded,
       basePanelsNeeded,
       additionalPanels,

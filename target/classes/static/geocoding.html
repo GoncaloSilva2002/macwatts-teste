@@ -429,7 +429,6 @@
       <p>Carregue no mapa para ajustar o ponto da casa e desenhe o contorno do telhado para calcular área e radiação solar.</p>
       <div class="roof-meta">
         <div id="houseInfo">Casa selecionada: nenhuma. Clica no mapa para mudar o pino.</div>
-        <div id="sunInfo">Sol no telhado: sem dados.</div>
       </div>
       <div class="actions">
         <button id="drawRoofBtn" type="button">Desenhar telhado</button>
@@ -438,11 +437,6 @@
       </div>
       <div id="message"></div>
     </aside>
-    <div class="solar-legend">
-      <span class="legend-item"><span class="legend-color" style="background: rgb(148, 163, 184);"></span>Baixa (&lt;200 W/m²)</span>
-      <span class="legend-item"><span class="legend-color" style="background: rgb(20, 184, 166);"></span>Boa (200-599 W/m²)</span>
-      <span class="legend-item"><span class="legend-color" style="background: rgb(13, 148, 136);"></span>Alta (&ge;600 W/m²)</span>
-    </div>
   </div>
 </main>
 
@@ -454,7 +448,6 @@
   const suggestionsEl = document.getElementById("suggestions");
   const message = document.getElementById("message");
   const houseInfo = document.getElementById("houseInfo");
-  const sunInfo = document.getElementById("sunInfo");
   const drawRoofBtn = document.getElementById("drawRoofBtn");
   const clearRoofBtn = document.getElementById("clearRoofBtn");
   const nextStepBtn = document.getElementById("nextStepBtn");
@@ -803,32 +796,6 @@
     nextStepBtn.disabled = !canContinue;
   }
 
-  function renderSunForHouse() {
-    if (!selectedHouse || !roofPolygon) {
-      sunInfo.textContent = "Sol no telhado: desenha e fecha primeiro o telhado.";
-      updateRoofSunLabel("Sem dados");
-      updateStepperState(1);
-      return;
-    }
-
-    const when = new Date();
-    const { lat, lng } = selectedHouse;
-    const dailyAverageWm2 = getDailyAverageIrradiance(when, lat, lng);
-    const averagePercent = Math.round((dailyAverageWm2 / 1000) * 100);
-    const fillOpacity = 0.25 + (averagePercent / 100) * 0.55;
-    const solarColor = getSolarColor(dailyAverageWm2);
-    const dailyLevel = getSolarLevelText(dailyAverageWm2);
-
-    roofPolygon.setStyle({
-      color: solarColor,
-      fillColor: solarColor,
-      fillOpacity
-    });
-
-    sunInfo.textContent = `Média do dia: ${dailyAverageWm2} W/m² (${dailyLevel})`;
-    updateRoofSunLabel(`Média dia ${dailyAverageWm2} W/m²`);
-    updateStepperState(2);
-  }
 
   async function updateAddressFromPoint(lat, lng) {
     try {
@@ -927,7 +894,6 @@
     selectedHouse = null;
     roofAreaSqm = 0;
     houseInfo.textContent = "Desenho ativo: clica ponto a ponto no telhado. Para fechar, clica novamente no ponto inicial.";
-    sunInfo.textContent = "Sol no telhado: sem dados.";
     message.textContent = "Modo desenho ativo: marca os cantos do telhado no mapa.";
   }
 
@@ -986,7 +952,6 @@
       } else {
         stopRoofDrawing();
         houseInfo.textContent = "Desenho cancelado.";
-        sunInfo.textContent = "Sol no telhado: sem dados.";
         message.textContent = "Desenho cancelado. Para fechar, precisa de pelo menos 3 pontos.";
       }
       return;
@@ -1023,7 +988,6 @@
       sunLabelMarker = null;
     }
     houseInfo.textContent = "Casa selecionada: nenhuma. Clica no mapa para mudar o pino.";
-    sunInfo.textContent = "Sol no telhado: sem dados.";
     message.textContent = "Telhado limpo.";
     updateStepperState(1);
     updateNextStepButtonState();
