@@ -8,118 +8,74 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
 
   <style>
-    body {
-      margin: 0;
-      font-family: Manrope, sans-serif;
-    }
+    body { margin: 0; font-family: Manrope, sans-serif; }
+    #map { height: 100vh; width: 100%; }
 
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-
-    /* TOP BAR */
     .top-bar {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      z-index: 10;
-
-      display: flex;
-      gap: 10px;
-
-      background: #ffffff;
-      padding: 10px;
-      border-radius: 12px;
-
+      position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10;
+      display: flex; gap: 10px;
+      background: #ffffff; padding: 10px; border-radius: 12px;
       border: 1px solid #e5e7eb;
     }
 
-    /* INPUT */
     .top-bar input {
-      flex: 1;
-      padding: 10px;
-
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-
+      flex: 1; padding: 10px;
+      border: 1px solid #e5e7eb; border-radius: 8px;
       font-size: 14px;
     }
 
-    /* BOTÕES BASE */
     .top-bar button {
       padding: 10px 12px;
       border-radius: 8px;
       border: none;
-
       font-weight: 600;
       cursor: pointer;
     }
 
-    /* BOTÃO PRINCIPAL */
-    #drawRoofBtn {
+    #drawRoofBtn { 
+      margin-top: 6px;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
       background: #14b8a6;
       color: white;
-    }
+      font-weight: 600;
+      cursor: pointer;
+      }
 
-    #drawRoofBtn:hover {
-      background: #0f766e;
-    }
+    #drawRoofBtn:hover { background: #0f766e; }
 
-    /* BOTÃO SECUNDÁRIO */
     #clearRoofBtn {
-      background: #f3f4f6;
-      color: #111827;
+      margin-top: 6px;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: #02f179;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
     }
+    #clearRoofBtn:hover { background: #0f766e; }
 
-    #clearRoofBtn:hover {
-      background: #e5e7eb;
-    }
-
-    /* PAINEL */
     .panel {
-      position: absolute;
-      top: 80px;
-      left: 10px;
-
+      position: absolute; top: 150px; left: 10px;
       width: 260px;
-
-      background: #ffffff;
-      padding: 14px;
-      border-radius: 12px;
-
+      background: #ffffff; padding: 14px; border-radius: 12px;
       z-index: 10;
-
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-
+      display: flex; flex-direction: column; gap: 10px;
       border: 1px solid #e5e7eb;
     }
 
-    /* TEXTO */
-    #houseInfo {
-      font-weight: 600;
-      font-size: 14px;
-    }
+    #houseInfo { font-weight: 600; font-size: 14px; }
+    #message { font-size: 13px; color: #6b7280; }
 
-    #message {
-      font-size: 13px;
-      color: #6b7280;
-    }
-
-    /* BOTÃO CONTINUAR */
     #nextStepBtn {
       margin-top: 6px;
-
       padding: 12px;
       border-radius: 10px;
-
       border: none;
       background: #e5e7eb;
-      color: #9ca3af;
-
+      color: #0c0c0c;
       font-weight: 600;
       cursor: pointer;
     }
@@ -130,13 +86,15 @@
 
 <div class="top-bar">
   <input id="address" placeholder="Pesquisar morada..." />
-  <button id="drawRoofBtn">Desenhar</button>
-  <button id="clearRoofBtn">Limpar</button>
+  <button id="searchBtn">Pesquisar</button>
 </div>
 
 <div class="panel">
   <div id="houseInfo">Casa: nenhuma</div>
   <div id="message"></div>
+  
+  <button id="drawRoofBtn">Desenhar</button>
+  <button id="clearRoofBtn">Limpar</button>
   <button id="nextStepBtn">Continuar</button>
 </div>
 
@@ -148,6 +106,7 @@ let marker = null;
 let polygon = null;
 let drawing = false;
 let roofPoints = [];
+let geocoder;
 
 const addressInput = document.getElementById("address");
 const houseInfo = document.getElementById("houseInfo");
@@ -160,38 +119,28 @@ function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 38.7223, lng: -9.1393 },
     zoom: 19,
-
     mapTypeId: "satellite",
-
-    //remover TODOS os controlos UI
-    disableDefaultUI: false,
-
-    //garantir que não aparece nada extra
     streetViewControl: false,
     mapTypeControl: false,
     fullscreenControl: false,
     rotateControl: false,
     scaleControl: true,
-
-    // bloquear inclinação e rotação vista 100 de cima
     tilt: 0,
     heading: 0
   });
+
+  geocoder = new google.maps.Geocoder();
 
   map.addListener("click", (event) => {
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
 
-    if (!drawing) {
-      setMarker(lat, lng);
-    } else {
-      addRoofPoint(lat, lng);
-    }
+    if (!drawing) setMarker(lat, lng);
+    else addRoofPoint(lat, lng);
   });
 
   initAutocomplete();
 }
-
 
 function setMarker(lat, lng) {
   if (marker) marker.setMap(null);
@@ -220,6 +169,38 @@ function initAutocomplete() {
     setMarker(lat, lng);
   });
 }
+
+function searchAddress() {
+  const address = addressInput.value;
+
+  if (!address) {
+    message.textContent = "Escreve uma morada";
+    return;
+  }
+
+  geocoder.geocode({ address: address }, (results, status) => {
+    if (status === "OK") {
+      const location = results[0].geometry.location;
+
+      setMarker(location.lat(), location.lng());
+      map.setZoom(19);
+
+      message.textContent = "Morada encontrada";
+    } else {
+      message.textContent = "Morada não encontrada";
+    }
+  });
+}
+
+// BOTÃO PESQUISAR
+document.getElementById("searchBtn").onclick = searchAddress;
+
+// ENTER NO INPUT
+addressInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    searchAddress();
+  }
+});
 
 function startDrawing() {
   drawing = true;
@@ -283,10 +264,7 @@ function getCenter() {
     lat += p.lat;
     lng += p.lng;
   });
-  return {
-    lat: lat / roofPoints.length,
-    lng: lng / roofPoints.length
-  };
+  return { lat: lat / roofPoints.length, lng: lng / roofPoints.length };
 }
 
 function saveData() {
@@ -326,7 +304,7 @@ nextStepBtn.onclick = () => {
 window.initMap = initMap;
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDkpF3YPntWCzgt8Sl4ReSnoQ5jwJvXuzg&libraries=places,geometry&v=weekly&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDb_0_8iNV8ojyt8nbqXKt7SBVgWGc-qRs&libraries=places,geometry&callback=initMap" async defer></script>
 
 </body>
 </html>
@@ -335,9 +313,7 @@ window.initMap = initMap;
 
 
 
-
-
-
+AIzaSyDb_0_8iNV8ojyt8nbqXKt7SBVgWGc-qRs
 
 
 
