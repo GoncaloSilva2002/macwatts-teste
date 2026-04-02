@@ -831,6 +831,10 @@
   let invoicePhoto = loadStoredJson("invoicePhoto");
   let invoicePdf = loadStoredJson("invoicePdf");
 
+  if (roofData && !Number.isFinite(roofData.areaSqm) && Number.isFinite(roofData.area)) {
+    roofData.areaSqm = roofData.area;
+  }
+
   // Configuração da região (ajusta estes valores conforme o país/região)
   const REGION_LAT_MIN = 36.9;
   const REGION_LAT_MAX = 42.2;
