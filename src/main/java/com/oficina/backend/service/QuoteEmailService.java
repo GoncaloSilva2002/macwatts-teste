@@ -89,6 +89,7 @@ public class QuoteEmailService {
 
         byte[] invoicePrimary = decodeBase64(request.getInvoiceAttachmentBase64());
         byte[] invoiceAlt = decodeBase64(request.getInvoiceAttachmentBase64Alt());
+        byte[] mapSnapshot = decodeBase64(request.getMapSnapshotBase64());
 
         boolean companySent = false;
         boolean clientSent = false;
@@ -106,7 +107,11 @@ public class QuoteEmailService {
                     request.getInvoiceAttachmentNameAlt(),
                     request.getInvoiceAttachmentMimeAlt(),
                     request.getInvoiceAttachmentBase64(),
-                    request.getInvoiceAttachmentBase64Alt()
+                    request.getInvoiceAttachmentBase64Alt(),
+                    null,
+                    null,
+                    null,
+                    null
             );
             clientSent = true;
         } catch (Exception ex) {
@@ -125,7 +130,11 @@ public class QuoteEmailService {
                 request.getInvoiceAttachmentNameAlt(),
                 request.getInvoiceAttachmentMimeAlt(),
                 request.getInvoiceAttachmentBase64(),
-                request.getInvoiceAttachmentBase64Alt()
+                request.getInvoiceAttachmentBase64Alt(),
+                mapSnapshot,
+                request.getMapSnapshotName(),
+                request.getMapSnapshotMime(),
+                request.getMapSnapshotBase64()
         );
         companySent = true;
 
@@ -142,6 +151,7 @@ public class QuoteEmailService {
     private boolean sendQuoteViaResend(QuoteEmailRequest request) throws Exception {
         byte[] invoicePrimary = decodeBase64(request.getInvoiceAttachmentBase64());
         byte[] invoiceAlt = decodeBase64(request.getInvoiceAttachmentBase64Alt());
+        byte[] mapSnapshot = decodeBase64(request.getMapSnapshotBase64());
 
         boolean companySent = false;
         boolean clientSent = false;
@@ -159,7 +169,11 @@ public class QuoteEmailService {
                     request.getInvoiceAttachmentNameAlt(),
                     request.getInvoiceAttachmentMimeAlt(),
                     request.getInvoiceAttachmentBase64(),
-                    request.getInvoiceAttachmentBase64Alt()
+                    request.getInvoiceAttachmentBase64Alt(),
+                    null,
+                    null,
+                    null,
+                    null
             );
             clientSent = true;
         } catch (Exception ex) {
@@ -178,7 +192,11 @@ public class QuoteEmailService {
                 request.getInvoiceAttachmentNameAlt(),
                 request.getInvoiceAttachmentMimeAlt(),
                 request.getInvoiceAttachmentBase64(),
-                request.getInvoiceAttachmentBase64Alt()
+                request.getInvoiceAttachmentBase64Alt(),
+                mapSnapshot,
+                request.getMapSnapshotName(),
+                request.getMapSnapshotMime(),
+                request.getMapSnapshotBase64()
         );
         companySent = true;
 
@@ -193,7 +211,8 @@ public class QuoteEmailService {
 
     private void sendResendEmail(String to, String subject, String body, byte[] invoiceBytes, String invoiceName, String invoiceMime,
                                  byte[] invoiceBytesAlt, String invoiceNameAlt, String invoiceMimeAlt,
-                                 String invoiceBase64, String invoiceBase64Alt) throws Exception {
+                                 String invoiceBase64, String invoiceBase64Alt,
+                                 byte[] mapBytes, String mapName, String mapMime, String mapBase64) throws Exception {
         Map<String, Object> payload = new HashMap<>();
         payload.put("from", resendFrom);
         payload.put("to", List.of(to));
@@ -210,6 +229,10 @@ public class QuoteEmailService {
             if (altAttachment != null) {
                 attachments.add(altAttachment);
             }
+        }
+        Map<String, Object> mapAttachment = buildResendAttachment(mapBytes, mapName, mapMime, mapBase64);
+        if (mapAttachment != null) {
+            attachments.add(mapAttachment);
         }
         if (!attachments.isEmpty()) {
             payload.put("attachments", attachments);
@@ -330,7 +353,10 @@ public class QuoteEmailService {
         return body.toString();
     }
 
-    private void sendEmail(String to, String subject, String body, byte[] invoiceBytes, String invoiceName, String invoiceMime, byte[] invoiceBytesAlt, String invoiceNameAlt, String invoiceMimeAlt, String invoiceBase64, String invoiceBase64Alt) throws Exception {
+    private void sendEmail(String to, String subject, String body, byte[] invoiceBytes, String invoiceName, String invoiceMime,
+                           byte[] invoiceBytesAlt, String invoiceNameAlt, String invoiceMimeAlt,
+                           String invoiceBase64, String invoiceBase64Alt,
+                           byte[] mapBytes, String mapName, String mapMime, String mapBase64) throws Exception {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
         helper.setFrom(fromEmail);
@@ -341,6 +367,7 @@ public class QuoteEmailService {
         if (!isSameAttachment(invoiceBytes, invoiceName, invoiceMime, invoiceBase64, invoiceBytesAlt, invoiceNameAlt, invoiceMimeAlt, invoiceBase64Alt)) {
             attachIfPresent(helper, invoiceBytesAlt, invoiceNameAlt, invoiceMimeAlt, invoiceBase64Alt);
         }
+        attachIfPresent(helper, mapBytes, mapName, mapMime, mapBase64);
         mailSender.send(message);
     }
 

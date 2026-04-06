@@ -17,6 +17,9 @@ public class QuoteEmailRequest {
     private String invoiceAttachmentBase64Alt;
     private String invoiceAttachmentNameAlt;
     private String invoiceAttachmentMimeAlt;
+    private String mapSnapshotBase64;
+    private String mapSnapshotName;
+    private String mapSnapshotMime;
 
     public String getClientName() {
         return clientName;
@@ -136,5 +139,29 @@ public class QuoteEmailRequest {
 
     public void setInvoiceAttachmentMimeAlt(String invoiceAttachmentMimeAlt) {
         this.invoiceAttachmentMimeAlt = invoiceAttachmentMimeAlt;
+    }
+
+    public String getMapSnapshotBase64() {
+        return mapSnapshotBase64;
+    }
+
+    public void setMapSnapshotBase64(String mapSnapshotBase64) {
+        this.mapSnapshotBase64 = mapSnapshotBase64;
+    }
+
+    public String getMapSnapshotName() {
+        return mapSnapshotName;
+    }
+
+    public void setMapSnapshotName(String mapSnapshotName) {
+        this.mapSnapshotName = mapSnapshotName;
+    }
+
+    public String getMapSnapshotMime() {
+        return mapSnapshotMime;
+    }
+
+    public void setMapSnapshotMime(String mapSnapshotMime) {
+        this.mapSnapshotMime = mapSnapshotMime;
     }
 }

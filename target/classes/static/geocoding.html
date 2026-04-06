@@ -9,13 +9,105 @@
 
   <style>
     body { margin: 0; font-family: Manrope, sans-serif; }
-    #map { height: 100vh; width: 100%; }
+    #map {
+      height: 100vh;
+      width: 100%;
+      border: 15px solid #e5e7eb;
+      border-radius: 14px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .shell {
+      position: absolute; top: 10px; left: 10px; right: 10px; z-index: 12;
+      border: 1px solid #bde7e2;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #f8fbfa;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
 
     .top-bar {
-      position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10;
-      display: flex; gap: 10px;
-      background: #ffffff; padding: 10px; border-radius: 12px;
-      border: 1px solid #e5e7eb;
+      height: 60px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      gap: 10px;
+    }
+
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      color: #111827;
+      white-space: nowrap;
+    }
+
+    .search-group {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .steps-bar {
+      height: 52px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 16px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .step-track {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      flex: 1 1 auto;
+    }
+
+    .step {
+      position: relative;
+      text-align: center;
+      color: #9ca3af;
+      font-weight: 700;
+      font-size: 0.86rem;
+      padding-top: 16px;
+    }
+
+    .step::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      background: #fff;
+    }
+
+    .step.done {
+      color: #0f766e;
+    }
+
+    .step.done::before {
+      border-color: #0f766e;
+      background: #0f766e;
+    }
+
+    .step.active {
+      color: #0f766e;
+    }
+
+    .step.active::before {
+      border-color: #14b8a6;
+      background: #14b8a6;
     }
 
     .top-bar input {
@@ -33,8 +125,8 @@
     }
 
     #drawRoofBtn { 
-      margin-top: 6px;
-      padding: 12px;
+      flex: 1;
+      padding: 10px 12px;
       border-radius: 10px;
       border: none;
       background: #14b8a6;
@@ -46,36 +138,44 @@
     #drawRoofBtn:hover { background: #0f766e; }
 
     #clearRoofBtn {
-      margin-top: 6px;
-      padding: 12px;
+      flex: 1;
+      padding: 10px 12px;
       border-radius: 10px;
       border: none;
-      background: #02f179;
+      background: #0f766e;
       color: white;
       font-weight: 600;
       cursor: pointer;
     }
-    #clearRoofBtn:hover { background: #0f766e; }
+    #clearRoofBtn:hover { background: #0b5f59; }
 
     .panel {
-      position: absolute; top: 150px; left: 10px;
-      width: 260px;
-      background: #ffffff; padding: 14px; border-radius: 12px;
+      position: absolute; top: 200px; left: 30px;
+      width: 400px;
+      background: #ffffff; padding: 16px; border-radius: 14px;
       z-index: 10;
       display: flex; flex-direction: column; gap: 10px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #d7dde3;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
     }
 
-    #houseInfo { font-weight: 600; font-size: 14px; }
-    #message { font-size: 13px; color: #6b7280; }
+    .panel-title { font-size: 18px; font-weight: 800; color: #1f2937; }
+    .panel-text { font-size: 13px; color: #6b7280; line-height: 1.35; }
+    .panel-divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
+    .panel-subtext { font-size: 12.5px; color: #6b7280; }
+
+    #houseInfo { font-weight: 600; }
+    #message { font-weight: 600; }
+
+    .panel-actions { display: flex; gap: 8px; }
 
     #nextStepBtn {
-      margin-top: 6px;
-      padding: 12px;
+      margin-top: 4px;
+      padding: 10px 12px;
       border-radius: 10px;
       border: none;
       background: #e5e7eb;
-      color: #0c0c0c;
+      color: #6b7280;
       font-weight: 600;
       cursor: pointer;
     }
@@ -84,17 +184,34 @@
 
 <body>
 
-<div class="top-bar">
-  <input id="address" placeholder="Pesquisar morada..." />
-  <button id="searchBtn">Pesquisar</button>
+<div class="shell">
+  <div class="top-bar">
+    <div class="brand">Macwatts</div>
+    <div class="search-group">
+      <input id="address" placeholder="Pesquisar morada..." />
+      <button id="searchBtn">Pesquisar</button>
+    </div>
+  </div>
+  <div class="steps-bar">
+    <div class="step-track">
+      <div class="step active">O seu telhado</div>
+      <div class="step">Questionário</div>
+      <div class="step">Contacto</div>
+      <div class="step">Próximo passo</div>
+    </div>
+  </div>
 </div>
 
 <div class="panel">
-  <div id="houseInfo">Casa: nenhuma</div>
-  <div id="message"></div>
-  
-  <button id="drawRoofBtn">Desenhar</button>
-  <button id="clearRoofBtn">Limpar</button>
+  <div class="panel-title">Selecione a sua Casa</div>
+  <div class="panel-text">Carregue no mapa para ajustar o ponto da casa e desenhe o contorno do telhado para calcular área e radiação solar.</div>
+  <div class="panel-divider"></div>
+  <div id="houseInfo" class="panel-subtext">Casa selecionada: nenhuma. Clica no mapa para mudar o pino.</div>
+  <div id="message" class="panel-subtext">Sol no telhado: sem dados.</div>
+  <div class="panel-actions">
+    <button id="drawRoofBtn">Desenhar telhado</button>
+    <button id="clearRoofBtn">Limpar telhado</button>
+  </div>
   <button id="nextStepBtn">Continuar</button>
 </div>
 
@@ -151,9 +268,17 @@ function setMarker(lat, lng) {
     draggable: true
   });
 
+  marker.addListener("dragend", (event) => {
+    const newLat = event.latLng.lat();
+    const newLng = event.latLng.lng();
+    houseInfo.textContent = `Lat: ${newLat.toFixed(6)}, Lng: ${newLng.toFixed(6)}`;
+    reverseGeocode(newLat, newLng);
+  });
+
   map.setCenter({ lat, lng });
 
   houseInfo.textContent = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+  reverseGeocode(lat, lng);
 }
 
 function initAutocomplete() {
@@ -167,6 +292,21 @@ function initAutocomplete() {
     const lng = place.geometry.location.lng();
 
     setMarker(lat, lng);
+  });
+}
+
+function reverseGeocode(lat, lng) {
+  if (!geocoder) return;
+
+  geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+    if (status === "OK" && results && results[0]) {
+      const formatted = results[0].formatted_address;
+      addressInput.value = formatted;
+      houseInfo.textContent = formatted;
+      message.textContent = "Morada atualizada";
+    } else {
+      message.textContent = "Sem morada para este ponto";
+    }
   });
 }
 
@@ -308,12 +448,3 @@ window.initMap = initMap;
 
 </body>
 </html>
-
-
-
-
-
-AIzaSyDb_0_8iNV8ojyt8nbqXKt7SBVgWGc-qRs
-
-
-
